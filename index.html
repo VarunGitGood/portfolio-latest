@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Varun Singh — Living Infrastructure</title>
+    <meta name="description" content="Varun Singh — backend & infrastructure engineer. A portfolio that runs like a living distributed system." />
+  </head>
+  <body>
+    <canvas id="bg"></canvas>
+
+    <div id="stage">
+      <div class="frame" id="frame">
+        <div class="hero" id="hero">
+          <h1><span id="name"></span></h1>
+          <span class="esc-hint">esc</span>
+          <div class="tagline" id="tag"></div>
+        </div>
+
+        <div class="stream" id="stream"></div>
+
+        <div class="askbar" id="askbar">
+          <span class="mag">›</span>
+          <input id="ask" placeholder="ask me anything…" autocomplete="off" spellcheck="false" />
+          <span class="kbd" id="askKbd">↵</span>
+          <div class="sugg" id="sugg"></div>
+        </div>
+
+        <div class="dock" id="dock"></div>
+        <div class="credit">ai · claude haiku on the edge · 5 questions/day</div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

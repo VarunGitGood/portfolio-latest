@@ -1,0 +1,256 @@
+{
+  "name": "Varun Singh",
+  "taglines": [
+    "building the infra under LLMs",
+    "retrieval that returns the right thing",
+    "Go services that don't fall over"
+  ],
+  "suggestedQuestions": [
+    "how does his RAG pipeline avoid hallucinating?",
+    "what has he shipped in production?",
+    "why hybrid search instead of pure vector?"
+  ],
+  "about": {
+    "bio": "AI infrastructure engineer. I build the systems underneath LLMs — retrieval pipelines, agent loops, and the Go services that keep them fast under load. Most of my work is the unglamorous half of AI: making retrieval return the right chunk, making generation reproducible, and making the whole thing survive production traffic at 3am.",
+    "facts": [
+      "SDE-1 @ Oracle",
+      "IIIT Jabalpur '25",
+      "SIH 2023 national winner",
+      "Code for GovTech (C4GT)",
+      "LeetCode 1728 · top 11%"
+    ],
+    "games": ["Valorant", "Terraria", "Hollow Knight", "God of War", "League of Legends"]
+  },
+  "projects": [
+    {
+      "id": "repi",
+      "title": "repi",
+      "blurb": "local-first log RCA · hybrid RAG",
+      "details": "An autonomous log investigation engine that runs entirely on your own machine. It ingests distributed service logs, clusters them by signature, retrieves evidence with hybrid vector + BM25 search, and reasons through root cause in a ReAct loop — no logs, no embeddings, nothing leaves the box.",
+      "stack": ["Python", "Postgres", "pgvector"],
+      "region": [0.72, 0.5],
+      "architecture": "A background worker tails configured log directories with offset tracking, so ingestion is continuous and resumable. Logs flow through parsing, signature clustering, embedding, and upsert into Postgres — vectors into a pgvector HNSW index, text into a ParadeDB BM25 full-text index. Queries run both retrievers and fuse their rankings with Reciprocal Rank Fusion, with query expansion for recall; results surface as timeline and cluster views. An autonomous ReAct loop gathers evidence across those tools, then a separate LLM compilation step synthesizes the finding. Every investigation is stored with a step-by-step audit trail, and logs are partitioned into projects so services and environments stay isolated. The whole thing ships as multi-arch Docker images alongside Postgres and Redis.",
+      "design_decisions": [
+        "Local-first and self-hosted with zero external dependencies — production logs are the single most sensitive text a company owns. An incident tool that ships them to a vendor's API is one nobody in a regulated org is allowed to install.",
+        "Postgres as the single store for both retrievers — pgvector for similarity, ParadeDB for BM25, one database, one transaction boundary. Logs and their embeddings can never drift apart, and there's no second system to operate.",
+        "Hybrid retrieval fused with RRF instead of vector-only — logs are dense with exact tokens (error codes, request IDs, hostnames) that embeddings blur into neighbours. RRF fuses on rank, so it needs no score normalization between two retrievers whose scores share no scale.",
+        "Progressive time-window expansion (10 → 60 → 360 → 1440 minutes) instead of one fixed window — an investigation usually starts with no known time bound. Widening in steps finds local causes fast and only pays for the wide search when the narrow one comes up empty.",
+        "A provider abstraction over OpenAI, Anthropic, Mistral, Gemini and Ollama — no single vendor is load-bearing, and the Ollama path is what makes the local-first claim actually true end to end.",
+        "Signature clustering before embedding — the unit of meaning in logs is the template, not the line."
+      ],
+      "tradeoffs": [
+        "Single-machine ceiling in exchange for operational simplicity — it runs on one box with Postgres and Redis, which caps throughput but means the install is a docker compose up rather than a platform team.",
+        "A separate LLM compilation step over answering straight out of the loop — one more call and a bit more latency, but evidence gathering and synthesis are different jobs and mixing them made both worse.",
+        "A hard call-rate cap (LLM_MAX_CALLS_PER_MIN) over letting the agent run free — an agent with no budget will happily spend real money re-confirming what it already knew.",
+        "Rules-based intent extraction on the query (service, timeframe, log level) over sending everything to the model — cheaper, deterministic, and it turns a vague question into a scoped retrieval before any token is spent."
+      ],
+      "challenges": [
+        "Repetitive log lines drowned retrieval — a service emitting the same error thousands of times returned thousands of near-identical results and starved the context window. Solved with signature clustering, so a recurring template is one clustered result with counts and a time range instead of thousands of copies.",
+        "Embedding cost and latency sat directly on the ingest path — moved behind the background worker with offset tracking, and a Redis cache layer keeps repeated work out of the hot path.",
+        "Scoping an investigation that begins with no known time bound — fixed windows either missed the cause or buried it. The progressive expansion ladder made scope something the loop discovers rather than something the user has to guess."
+      ],
+      "improvements": [
+        "Distribute ingestion across nodes — the single-machine design is deliberate, but it's also the first thing to hit at real log volume.",
+        "Broaden the eval sets beyond the three scripted investigation datasets — RAGAS scores are only as honest as the scenarios behind them.",
+        "Push cross-encoder reranking across every retrieval path, not just the primary one, so precision doesn't depend on which view the agent queried."
+      ],
+      "links": { "github": "https://github.com/VarunGitGood/repi" },
+      "meta": {
+        "difficulty": "Advanced",
+        "domains": ["AI/LLM", "RAG", "Observability", "Backend"],
+        "highlights": [
+          "local-first, zero external dependencies",
+          "pgvector HNSW + ParadeDB BM25",
+          "Reciprocal Rank Fusion",
+          "autonomous ReAct investigation loop",
+          "RAGAS-evaluated retrieval",
+          "5 LLM providers behind one interface"
+        ],
+        "questions": [
+          "How do you know the retrieval is any good?",
+          "Why hybrid search instead of pure vector retrieval?",
+          "Why does it run entirely locally?",
+          "How does it decide how far back in time to look?",
+          "Why Postgres instead of a dedicated vector database?"
+        ]
+      }
+    },
+    {
+      "id": "collapser",
+      "title": "collapser-grpc",
+      "blurb": "gRPC request collapsing · 82 ns/op",
+      "details": "An open-source Go sidecar that kills thundering herds. When thousands of callers ask for the same thing at the same moment, exactly one request reaches the backend and everyone else attaches to that result — schema-agnostic, zero-allocation on the hot path, with Prometheus metrics out of the box.",
+      "stack": ["Go", "gRPC"],
+      "region": [0.25, 0.3],
+      "architecture": "The proxy sits between clients and a gRPC backend. Each arriving request is keyed by SHA256(method + payload), checked against a 100ms TTL result cache, then against the in-flight map. The first caller for a key becomes the leader and calls the backend on a detached context; every later caller becomes a follower and waits on that same result, which is broadcast to all of them on completion. A passthrough codec forwards raw gRPC frames without ever needing service descriptors, so it works against any protobuf service with zero schema knowledge. One persistent *grpc.ClientConn is held for the life of the process, so every request rides existing HTTP/2 streams instead of paying for a handshake. Streaming RPCs are detected and bypassed, panics are recovered, and shutdown drains in-flight work.",
+      "design_decisions": [
+        "A sidecar rather than a client library — collapsing has to work for every caller in the mesh regardless of language. A Go library only ever helps the Go services.",
+        "A passthrough codec over decoding requests — forwarding raw frames means no proto descriptors, no code generation, no redeploy when a schema changes. The proxy is genuinely schema-agnostic.",
+        "Detached-context semantics for the leader's backend call — this is the explicit improvement over golang.org/x/sync/singleflight, where the leader cancelling takes down work that other callers are still waiting on. Here the backend call outlives whichever client happened to arrive first.",
+        "SHA256 over method + payload as the collapse key — identical requests hash identically without the proxy understanding a single field.",
+        "Errors are not cached by default — a transient blip should not be replayed to every caller for a full TTL window. Negative caching exists but is opt-in via COLLAPSER_CACHE_ERRORS.",
+        "One persistent ClientConn instead of per-request dialing — HTTP/2 multiplexing does the work, and TCP/TLS handshakes disappear from the hot path."
+      ],
+      "tradeoffs": [
+        "Followers inherit the leader's failure — one backend error fails everyone attached. That's the correct read-through semantic, and retrying per-follower would recreate the exact herd the proxy exists to prevent.",
+        "A 100ms result TTL trades a small, bounded staleness window for the collapse ratio — long enough to absorb a burst, short enough that nobody is served genuinely old data.",
+        "Streaming RPCs are bypassed rather than half-supported — a stream has no single result to fan out, so client-streaming and bidirectional calls are detected and passed straight through.",
+        "Everything is configured by environment variable rather than a config file or control plane — a sidecar should be deployable without shipping a second artifact alongside it."
+      ],
+      "challenges": [
+        "Client cancellation killing shared work — the naive implementation runs the backend call on the leader's context, so when that client disconnected every follower died with it. Detaching the context fixed it, and it's the core reason this exists rather than a singleflight wrapper.",
+        "Server-streaming RPCs are indistinguishable from unary ones without a proto descriptor — a known, documented limitation: server-streaming calls currently return only the first response frame.",
+        "TLS to the backend uses the system trust store — custom CA bundles and mutual TLS aren't supported yet, which rules out some zero-trust meshes today."
+      ],
+      "improvements": [
+        "Optional proto descriptors so server-streaming RPCs can be detected and passed through correctly, closing the one real correctness gap.",
+        "Mutual TLS and custom CA bundle support for backends that don't chain to the system trust store.",
+        "Per-method collapse policy — everything is global today, and non-idempotent methods deserve an explicit opt-out rather than relying on the TTL being short."
+      ],
+      "links": { "github": "https://github.com/VarunGitGood/collapser-grpc" },
+      "meta": {
+        "difficulty": "Advanced",
+        "domains": ["Distributed Systems", "Go", "gRPC", "Performance"],
+        "highlights": [
+          "~82 ns/op, zero allocations at 10k+ concurrency",
+          "up to 1000:1 collapse ratio",
+          "schema-agnostic passthrough codec",
+          "detached-context semantics vs singleflight",
+          "Prometheus metrics and structured logging built in"
+        ],
+        "questions": [
+          "What is request collapsing and when does it help?",
+          "How is this different from singleflight?",
+          "What can't it do?",
+          "Why a sidecar instead of a client library?",
+          "How does it work without knowing the protobuf schema?"
+        ]
+      }
+    },
+    {
+      "id": "configgen",
+      "title": "configgen",
+      "blurb": "LLM config generation · production",
+      "details": "A production system that turns 150+ versioned telecom specification documents into valid test configurations. Retrieval keeps it grounded in the right release, schema-constrained generation keeps the output machine-usable, and a validate-then-repair loop keeps it honest. Cut manual authoring time by 50% across 6+ engineering teams.",
+      "stack": ["Python", "FAISS", "LangChain"],
+      "region": [0.5, 0.8],
+      "architecture": "Specification documents are parsed on section boundaries, embedded, and stored in a FAISS index partitioned by document version. A generation request names the target function, the release, and the scenario; retrieval is scoped to that release's partition, and the retrieved sections are handed to a schema-constrained generation step that fills the target config schema directly. Output is checked against the same validator the test harness uses, and validation failures are fed back to the model for one bounded repair attempt before the draft reaches a human reviewer.",
+      "design_decisions": [
+        "A FAISS index partitioned per document version rather than one flat index — a config assembled from mixed-release specs is worse than no config at all. Partitioning makes cross-version contamination structurally impossible instead of leaving it to ranking luck.",
+        "Schema-constrained structured output instead of free-form text plus a parser — the config schema is known up front, so the model fills it rather than writing prose that someone downstream has to regex back into structure.",
+        "A validate-then-repair loop instead of trusting the first generation — the generated config is run through the real validator, and the model gets the validator's own error message back with exactly one chance to fix it.",
+        "Deterministic decoding — identical inputs must produce an identical config, otherwise the reproducibility problem this was built to solve just moves somewhere else.",
+        "Retrieval over fine-tuning — the specification corpus changes every release, and a fine-tune is stale the day it ships."
+      ],
+      "tradeoffs": [
+        "One good retrieval plus prompt stuffing over a longer agentic loop — authors need a draft in seconds, not an investigation. Depth was spent on retrieval precision instead of loop count.",
+        "Human review stayed mandatory — the output is a strong draft, not an approved artifact. The 50% saved is authoring time, not review time, and overclaiming that would have killed adoption on day one.",
+        "Section-boundary chunking over fixed-size windows — it costs a parser per document format, but a parameter and its constraints must never land in two different chunks.",
+        "Scoped retrieval over broad retrieval with score filtering — narrower recall by construction, in exchange for never citing the wrong release."
+      ],
+      "challenges": [
+        "Retrieval kept surfacing the right parameter from the wrong release — score-based filtering proved unreliable, which is what drove the move to hard version partitioning.",
+        "Long specification tables lost their meaning when chunked — tables are now extracted and serialized whole alongside their captions, never split across chunks.",
+        "Silent underspecification: the model filled in plausible defaults for parameters the spec never covered. Unsupported fields must now be emitted as explicit nulls with a stated reason, so a gap shows up as a gap instead of an invention."
+      ],
+      "improvements": [
+        "A regression suite of golden configs per release, so a spec update or a model change that shifts output is caught before an author sees it.",
+        "Cross-encoder reranking over the FAISS candidates — retrieval is pure approximate nearest neighbour today, and the top hit isn't always the most specific one.",
+        "Per-field provenance in the output, so every generated value links back to the exact spec section it came from and review becomes checking citations instead of re-reading the spec."
+      ],
+      "links": { "note": "internal production system — source not public" },
+      "meta": {
+        "difficulty": "Advanced",
+        "domains": ["AI/LLM", "RAG", "Structured Output", "Telecom"],
+        "highlights": [
+          "150+ versioned specification documents",
+          "version-partitioned FAISS retrieval",
+          "schema-constrained generation",
+          "validate-then-repair loop",
+          "50% less manual authoring across 6+ teams"
+        ],
+        "questions": [
+          "How does it avoid mixing up document versions?",
+          "How do you stop an LLM from inventing config values?",
+          "Why retrieval instead of fine-tuning on the specs?",
+          "What did it actually save, and what still needs a human?"
+        ]
+      }
+    }
+  ],
+  "skills": [
+    {
+      "group": "AI / LLM",
+      "items": [
+        ["RAG Pipelines", 90],
+        ["pgvector · FAISS", 88],
+        ["Reranking & Hybrid Search", 86],
+        ["ReAct Agents", 82],
+        ["LangChain", 84]
+      ]
+    },
+    {
+      "group": "Languages",
+      "items": [
+        ["Go", 88],
+        ["Python", 88],
+        ["TypeScript", 86],
+        ["C++", 72],
+        ["SQL", 84]
+      ]
+    },
+    {
+      "group": "Backend & Systems",
+      "items": [
+        ["FastAPI", 86],
+        ["NestJS", 84],
+        ["gRPC", 82],
+        ["PostgreSQL", 88],
+        ["Redis", 84]
+      ]
+    },
+    {
+      "group": "Infrastructure",
+      "items": [
+        ["Docker", 88],
+        ["Kubernetes", 84],
+        ["RabbitMQ", 78],
+        ["S3 · Object Storage", 80],
+        ["CI/CD Pipelines", 84]
+      ]
+    }
+  ],
+  "experience": [
+    {
+      "role": "Associate Software Developer (SDE-1)",
+      "org": "Oracle",
+      "period": "Jul 2025—now",
+      "summary": "Co-built an LLM-driven test configuration generator over 150+ versioned specification documents with a FAISS retrieval layer — 50% less manual authoring across 6+ teams. Also rebuilt the logging pipeline on artifact-backed storage (35% lower stale-artifact cost) and pushed first-pass Kubernetes deployment success from 60% to 95%."
+    },
+    {
+      "role": "Project Intern",
+      "org": "Oracle",
+      "period": "Jan—Jun 2025",
+      "summary": "Built performance-run reporting utilities that turned raw worker-node utilization metrics into standardized KPI tables, making resource bottlenecks visible. Refactored the test scheduling dashboard's state management — cut UI support tickets 80% for 75+ engineers."
+    },
+    {
+      "role": "Consulting Backend Engineer",
+      "org": "Trijog",
+      "period": "Feb—Apr 2024",
+      "summary": "Architected a modular NestJS LMS backend with role-based access control and an async media pipeline (Bull + FFmpeg) transcoding uploads to adaptive-bitrate HLS — upload-to-stream went from 30 minutes to 5. Secured delivery with a Cloudflare Worker CDN proxy authorizing every HLS segment."
+    },
+    {
+      "role": "B.Tech, Computer Science",
+      "org": "IIIT Jabalpur",
+      "period": "2021—2025",
+      "summary": "Winner of Smart India Hackathon 2023 (from 50,000+ nationwide submissions). Selected for Code for GovTech (C4GT), contributing to government-grade open-source digital public infrastructure. LeetCode 1728 — top 11%, 600+ problems solved."
+    }
+  ],
+  "blogs": [],
+  "contact": {
+    "email": "varun7singh10@gmail.com",
+    "github": "https://github.com/VarunGitGood",
+    "linkedin": "https://www.linkedin.com/in/varun-singh-018242224/"
+  },
+  "resumeUrl": "/resume.pdf"
+}
