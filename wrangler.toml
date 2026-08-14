@@ -5,13 +5,17 @@ pages_build_output_dir = "dist"
 # Secrets (do NOT put keys here — set them, don't commit them):
 #   local dev  -> create .dev.vars   (see .dev.vars.example)
 #   production -> `npx wrangler pages secret put OPENROUTER_API_KEY`
-# Optional model override:
+#                 `npx wrangler pages secret put GITHUB_TOKEN`   (optional)
+# Optional model override — must be tool-calling capable, /ask binds tools:
 #   [vars]
 #   MODEL = "mistralai/mistral-small-3.2-24b-instruct"
 
-# Rate limiting (3 questions/IP/day + global cap). Create the namespace, then
-# paste its id:  npx wrangler kv namespace create RATE
-# Without this binding the /ask function runs with limits disabled (local dev).
-# [[kv_namespaces]]
-# binding = "RATE"
-# id = "<paste-from-wrangler-kv-namespace-create>"
+# Rate limiting (5 questions/IP/day + global cap) and the GitHub read cache
+# (gh:* keys). Namespace already exists; recreate with:
+#   npx wrangler kv namespace create RATE
+#
+# Keep this bound: with RATE unbound, functions/ask.ts skips both limits and
+# /ask is unmetered, with the OpenRouter key's credit limit as the only ceiling.
+[[kv_namespaces]]
+binding = "RATE"
+id = "69df8c6e298a4f8fa6e9374284c936c5"

@@ -85,10 +85,11 @@ body::after {
 /* ---- landing vertical allocation (H = frame height, 81vh), top to bottom ----
    whole cluster (hero → bar → chips → tabs) optically centered on 50%H
    hero center 38%H — typical bottom (1-line name) ≈ 38%H + 69
-   bar center 54%H (bottom: 46% + translateY(50%)), ~54px tall; top edge = 54%H − 27
-   gap tagline→bar = 16%H − 96px (tight by design; height tiers keep it positive)
-   chips: single row (~35px) starting 14px below the bar
-   tabs: 14px below the chips → bottom: calc(46% − 131px) [27 + 14 + 35 + 14 + 41] */
+   bar center 54%H (bottom: 46% + translateY(50%)); its bottom edge = 46%H − --bar-half
+   chips: 14px below the bar, then tabs 14px below the chips.
+   The two variable rows (chips, tabs) report their own height into --sugg-h /
+   --pill-h from dock.ts measureCluster() — the fallbacks below are only what the
+   first paint uses. Nothing here assumes a font metric. */
 .hero {
   position: absolute; left: 50%; top: 38%; transform: translate(-50%, -50%);
   width: min(640px, 86%); text-align: center; display: flex; flex-direction: column; align-items: center; gap: 30px;
@@ -102,8 +103,14 @@ body::after {
   cursor: pointer;
 }
 .frame.docked .hero:hover h1 { filter: brightness(1.3); }
-.tagline { opacity: 1; transition: opacity 0.4s ease 0.35s; }
 .frame.docked .tagline { opacity: 0; position: absolute; pointer-events: none; transition: opacity 0.15s ease; }
+/* back affordance: the docked name is clickable, so say so */
+.hero .back { display: none; }
+.frame.docked .hero .back {
+  display: inline-block; font-family: var(--font-mono); font-size: 22px; line-height: 1;
+  color: var(--muted); transition: color 0.25s ease, transform 0.25s ease;
+}
+.frame.docked .hero:hover .back { color: var(--accent-light); transform: translateX(-3px); }
 /* "esc" hint peeks out when hovering the docked name */
 .hero .esc-hint { display: none; }
 .frame.docked .hero .esc-hint {
@@ -124,7 +131,13 @@ h1 .ch {
   background: linear-gradient(180deg, #f4f5f8, #cfd2da); -webkit-background-clip: text; background-clip: text; color: transparent;
 }
 @keyframes blink { 50% { opacity: 0; } }
-.tagline { font-family: var(--font-mono); font-size: 17px; color: var(--accent-light); min-height: 1.2em; max-width: 100%; }
+/* One line, always: the box is pinned by hero.ts to the widest tagline so the
+   left edge never moves between cycles, and the type shrinks rather than wraps. */
+.tagline {
+  font-family: var(--font-mono); font-size: clamp(12px, 2.5vw, 17px); color: var(--accent-light);
+  min-height: 1.2em; max-width: 100%; text-align: left; white-space: nowrap;
+  opacity: 1; transition: opacity 0.4s ease 0.35s;
+}
 
 /* ---- the stream: one scroll surface for sections + chat ---- */
 .stream {
@@ -157,6 +170,11 @@ h1 .ch {
   background: rgba(124, 196, 196, 0.1); border: 1px solid rgba(124, 196, 196, 0.22);
   padding: 10px 14px; border-radius: 13px 13px 4px 13px;
 }
+/* what the assistant actually did before answering — real work, not fake tokens */
+.msg-trace { display: flex; flex-direction: column; gap: 4px; }
+.msg-trace:empty { display: none; }
+.tl { font-family: var(--font-mono); font-size: 11px; color: var(--accent-deep); letter-spacing: 0.02em; }
+.msg-trace.done .tl { color: var(--faint); }
 .msg-a { color: var(--text); line-height: 1.72; font-size: 16px; white-space: pre-wrap; max-width: 100%; }
 .msg-a .blinkc { color: var(--accent-light); animation: blink 1.05s steps(1) infinite; }
 .msg-err { color: var(--faint); font-family: var(--font-mono); font-size: 12.5px; }
@@ -188,11 +206,12 @@ h1 .ch {
 .askbar input:disabled { opacity: 0.5; }
 .askbar .kbd { font-family: var(--font-mono); font-size: 11px; color: var(--muted); border: 1px solid var(--border); border-radius: 6px; padding: 3px 8px; white-space: nowrap; }
 
-/* suggested questions — one fixed-height row right under the askbar (the tab
-   offset math depends on it); flipped above the bar when docked */
+/* suggested questions — one row right under the askbar; its measured height
+   feeds --sugg-h, which is what pushes the tabs down. Chips must never wrap:
+   a two-line row used to grow straight into the tabs. */
 .sugg {
   position: absolute; top: calc(100% + 14px); left: 50%; transform: translateX(-50%);
-  width: max-content; max-width: 120%; display: flex; gap: 8px; justify-content: center; flex-wrap: nowrap;
+  width: max-content; max-width: 96vw; display: flex; gap: 8px; justify-content: center; flex-wrap: nowrap;
   transition: opacity 0.4s ease;
 }
 /* docked = stream in use; chips would sit on top of the content, so they go */
@@ -201,10 +220,11 @@ h1 .ch {
 .sq {
   font-family: var(--font-body); font-size: 13px; color: var(--muted); cursor: pointer; user-select: none;
   background: rgba(20, 22, 30, 0.6); border: 1px solid var(--border); border-radius: 999px; padding: 8px 14px;
+  white-space: nowrap; flex-shrink: 0;
   /* transform/opacity excluded — anime.js drives those at boot */
-  transition: color 0.2s, border-color 0.2s;
+  transition: color 0.2s, border-color 0.2s, background 0.2s;
 }
-.sq:hover { color: var(--text); border-color: rgba(124, 196, 196, 0.35); transform: translateY(-1px); }
+.sq:hover { color: var(--text); border-color: rgba(124, 196, 196, 0.35); background: rgba(28, 32, 42, 0.85); }
 
 /* the engineering wink */
 .credit {
@@ -219,25 +239,25 @@ h1 .ch {
 /* ---- tabs: grouped under the askbar on landing, glide to the bottom edge
    once the frame docks (message sent or section opened) ---- */
 .dock {
-  /* below bar (27) + gap (14) + chip row (35) + gap (14) + pill height (41) — see allocation */
-  position: absolute; left: 50%; bottom: calc(46% - 131px); transform: translateX(-50%); z-index: 8;
-  display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;
+  /* bar half-height + chip block (gap + row, 0 when hidden) + gap + pill height */
+  position: absolute; left: 50%; transform: translateX(-50%); z-index: 8;
+  bottom: calc(46% - var(--bar-half, 26px) - var(--sugg-h, 49px) - 14px - var(--pill-h, 38px));
+  display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;
   opacity: 0; /* revealed by the boot timeline */
   transition: bottom 0.6s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .frame.docked .dock { bottom: 22px; }
 .pill {
-  font-family: var(--font-body); font-size: 13.5px; color: var(--muted); padding: 10px 17px; border-radius: 12px; cursor: pointer;
+  font-family: var(--font-body); font-size: 13.5px; color: var(--muted); padding: 10px 18px; border-radius: 12px; cursor: pointer;
   background: rgba(20, 22, 30, 0.72); border: 1px solid rgba(255, 255, 255, 0.09);
   backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-  display: flex; align-items: center; gap: 8px; user-select: none;
+  display: flex; align-items: center; user-select: none; white-space: nowrap;
   transition: color 0.2s, border-color 0.2s, background 0.2s, transform 0.2s;
 }
 .pill:hover { color: var(--text); border-color: rgba(124, 196, 196, 0.35); background: rgba(28, 32, 42, 0.85); transform: translateY(-2px); }
 .pill:active { transform: translateY(0) scale(0.96); }
-.pill i { width: 6px; height: 6px; border-radius: 2px; background: var(--faint); display: inline-block; transition: background 0.2s, box-shadow 0.2s; }
-.pill:hover i, .pill.active i { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
-.pill.active { color: var(--text); border-color: rgba(124, 196, 196, 0.28); }
+/* current section: filled, not a dot */
+.pill.active { color: var(--text); background: rgba(124, 196, 196, 0.14); border-color: rgba(124, 196, 196, 0.45); }
 
 /* ---- section content (inside stream entries) ---- */
 .facts { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
@@ -316,8 +336,9 @@ h1 .ch {
   h1 { font-size: clamp(40px, 6.5vw, 64px); }
 }
 @media (max-height: 680px) {
-  .sugg { display: none; } /* onboarding sugar loses to legibility on tiny screens */
-  .dock { bottom: calc(46% - 82px); } /* chip row gone — tabs move up by its 49px */
+  /* onboarding sugar loses to legibility on tiny screens; --sugg-h measures 0
+     from here, so the tabs close the gap on their own */
+  .sugg { display: none; }
 }
 
 @media (max-width: 640px) {

@@ -37,8 +37,8 @@ export interface Experience {
 export interface Content {
   name: string;
   taglines: string[];
-  /** onboarding chips under the askbar */
-  suggestedQuestions: string[];
+  /** onboarding chips under the askbar — short label, full question sent on click */
+  suggestedQuestions: { label: string; question: string }[];
   about: { bio: string; facts: string[]; games: string[] };
   projects: Project[];
   skills: SkillGroup[];

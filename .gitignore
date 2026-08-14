@@ -4,6 +4,7 @@ dist-ssr
 *.local
 .DS_Store
 .vite
+.wrangler
 
 # secrets
 .dev.vars

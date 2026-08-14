@@ -50,6 +50,7 @@ export function undockFrame(): void {
   docked = false;
   frame().classList.remove("docked");
   document.getElementById("hero")!.removeAttribute("title");
+  bus.emit("section", null); // back on the landing — no tab is current
 }
 
 /** Hero click / esc return to the landing view; stream history is kept. */
@@ -112,14 +113,18 @@ function typeTag(el: Element, text: string, done: () => void): void {
   })();
 }
 
-export function openSection(sec: Section): void {
+/** `focusId` expands that project row once the section renders — the assistant
+ *  uses it to point at a specific project while it answers. */
+export function openSection(sec: Section, focusId?: string): void {
   dockFrame();
+  bus.emit("section", sec);
   const s = streamEl();
 
   // re-clicking the section that's already last just pulses it — no dupes
   const last = s.lastElementChild as HTMLElement | null;
   if (last?.dataset.sec === sec) {
     if (!reduce) animate(last, { scale: [1, 1.015, 1], duration: 320, ease: "inOutQuad" });
+    if (focusId) expandProject(last, focusId);
     scrollToEnd(s);
     return;
   }
@@ -151,6 +156,7 @@ export function openSection(sec: Section): void {
         animate(targets, { opacity: [0, 1], translateY: [8, 0], delay: stagger(30), duration: 340, ease: "outQuad" });
       }
     }
+    if (focusId) expandProject(entry, focusId);
     scrollToEnd(s);
   };
   const tag = entry.querySelector(".etag")!;
@@ -164,17 +170,22 @@ export function openSection(sec: Section): void {
   else bus.emit("react", sec);
 }
 
+/** Accordion: only one project row is open at a time. */
+function expandProject(entry: HTMLElement, id: string): void {
+  const el = entry.querySelector<HTMLElement>(`.proj[data-id="${id}"]`);
+  if (!el || el.classList.contains("open")) return;
+  entry.querySelectorAll(".proj.open").forEach((o) => o.classList.remove("open"));
+  el.classList.add("open");
+  const p = content.projects.find((x) => x.id === id) as Project;
+  bus.emit("converge", p?.region);
+}
+
 function wire(sec: Section, entry: HTMLElement): void {
   if (sec === "projects") {
     entry.querySelectorAll<HTMLElement>(".proj").forEach((el) => {
       el.onclick = () => {
-        const open = el.classList.contains("open");
-        entry.querySelectorAll(".proj.open").forEach((o) => o.classList.remove("open"));
-        if (!open) {
-          el.classList.add("open");
-          const p = content.projects.find((x) => x.id === el.dataset.id) as Project;
-          bus.emit("converge", p?.region);
-        }
+        if (el.classList.contains("open")) el.classList.remove("open");
+        else expandProject(entry, el.dataset.id!);
       };
     });
   } else if (sec === "contact") {

@@ -2,6 +2,8 @@ import { animate, stagger } from "animejs";
 import { bus } from "../bus";
 import { ask, AskError } from "./ask";
 import { dockFrame, scrollToEnd } from "./stream";
+import { measureCluster } from "./dock";
+import { runAction } from "./actions";
 import { content } from "../data";
 
 const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -9,7 +11,7 @@ const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
 // MOCK: while true, don't hit the worker — fake a ~2s "thinking" then stream a
 // stub answer, so the converge→dissipate bg effect can be tested standalone.
 // Set to false once the /ask worker + OPENROUTER_API_KEY are live.
-const MOCK = true;
+const MOCK = false;
 
 // client-side display of the server's 5/day limit (server is authoritative)
 const LIMIT = 5;
@@ -60,13 +62,16 @@ export function initChat(): void {
   // suggested questions — onboarding for visitors who don't know what to ask;
   // gone for good after the first real question
   const hideSugg = () => sugg.classList.add("gone");
-  sugg.innerHTML = content.suggestedQuestions.map((q) => `<span class="sq">${esc(q)}</span>`).join("");
+  sugg.innerHTML = content.suggestedQuestions
+    .map((s) => `<span class="sq" data-q="${esc(s.question)}">${esc(s.label)}</span>`)
+    .join("");
   sugg.querySelectorAll<HTMLElement>(".sq").forEach((el) => {
     el.onclick = () => {
-      input.value = el.textContent || "";
+      input.value = el.dataset.q || "";
       submit();
     };
   });
+  measureCluster(); // the chip row's real height is what positions the tabs
   if (used() > 0) hideSugg();
   // chips trickle in after the askbar lands (boot reveals it ~3.3s)
   else if (!reduce) {
@@ -118,10 +123,13 @@ export function initChat(): void {
 
     const row = document.createElement("div");
     row.className = "msg";
-    row.innerHTML = `<div class="msg-q">${esc(q)}</div><div class="msg-a"><span class="blinkc">▌</span></div>`;
+    row.innerHTML =
+      `<div class="msg-q">${esc(q)}</div><div class="msg-trace"></div>` +
+      `<div class="msg-a"><span class="blinkc">▌</span></div>`;
     convo.appendChild(row);
     if (!reduce) animate(row, { opacity: [0, 1], translateY: [12, 0], duration: 380, ease: "outCubic" });
     const a = row.querySelector(".msg-a") as HTMLElement;
+    const trace = row.querySelector(".msg-trace") as HTMLElement;
     scrollToEnd(convo);
 
     bus.emit("thinking", true); // gather the smoke to center
@@ -130,11 +138,20 @@ export function initChat(): void {
       // don't yank the view if the visitor scrolled up to read
       const follow = convo.scrollHeight - convo.scrollTop - convo.clientHeight < 80;
       text += tok;
+      trace.classList.add("done"); // the answer is landing — the trace dims out of the way
       a.innerHTML = esc(text) + '<span class="blinkc">▌</span>';
       if (follow) convo.scrollTop = convo.scrollHeight;
     };
+    const onTrace = (m: string) => {
+      const line = document.createElement("div");
+      line.className = "tl";
+      line.textContent = `⟩ ${m}`;
+      trace.appendChild(line);
+      if (!reduce) animate(line, { opacity: [0, 1], translateX: [-6, 0], duration: 260, ease: "outQuad" });
+      scrollToEnd(convo);
+    };
     try {
-      await (MOCK ? mockAnswer(q, onToken) : ask(q, onToken));
+      await (MOCK ? mockAnswer(q, onToken) : ask(q, { token: onToken, trace: onTrace, action: runAction }));
       a.innerHTML = renderAnswer(text);
       bump();
     } catch (e) {

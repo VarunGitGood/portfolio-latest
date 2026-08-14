@@ -6,31 +6,37 @@
     "Go services that don't fall over"
   ],
   "suggestedQuestions": [
-    "how does his RAG pipeline avoid hallucinating?",
-    "what has he shipped in production?",
-    "why hybrid search instead of pure vector?"
+    { "label": "show me his work", "question": "show me his projects" },
+    {
+      "label": "why hybrid search?",
+      "question": "why hybrid search instead of pure vector?"
+    },
+    {
+      "label": "in production?",
+      "question": "what has he shipped in production?"
+    }
   ],
   "about": {
-    "bio": "AI infrastructure engineer. I build the systems underneath LLMs — retrieval pipelines, agent loops, and the Go services that keep them fast under load. Most of my work is the unglamorous half of AI: making retrieval return the right chunk, making generation reproducible, and making the whole thing survive production traffic at 3am.",
+    "bio": "AI infrastructure engineer. I build the systems underneath LLMs — retrieval pipelines, agent loops, and the Go services that keep them fast under load. Most of my work is the unglamorous half of AI: making retrieval return the right chunk, making generation reproducible, and making the whole thing survive production traffic at 3am. Currently going deeper on the inference serving layer — batching, routing, and GPU utilization.",
     "facts": [
       "SDE-1 @ Oracle",
       "IIIT Jabalpur '25",
       "SIH 2023 national winner",
-      "Code for GovTech (C4GT)",
-      "LeetCode 1728 · top 11%"
-    ],
-    "games": ["Valorant", "Terraria", "Hollow Knight", "God of War", "League of Legends"]
+      "Code for GovTech (C4GT)"
+    ]
   },
   "projects": [
     {
       "id": "repi",
       "title": "repi",
-      "blurb": "local-first log RCA · hybrid RAG",
-      "details": "An autonomous log investigation engine that runs entirely on your own machine. It ingests distributed service logs, clusters them by signature, retrieves evidence with hybrid vector + BM25 search, and reasons through root cause in a ReAct loop — no logs, no embeddings, nothing leaves the box.",
-      "stack": ["Python", "Postgres", "pgvector"],
+      "blurb": "local-first log RCA · hybrid RAG · state-machine agent",
+      "details": "An autonomous log investigation engine that runs entirely on your own machine. It ingests distributed service logs, clusters them by signature, retrieves evidence with hybrid vector + BM25 search, and reasons through root cause in a state-machine-supervised investigation loop — no logs, no embeddings, nothing leaves the box.",
+      "stack": ["Python", "Postgres", "pgvector", "ParadeDB", "Redis"],
       "region": [0.72, 0.5],
-      "architecture": "A background worker tails configured log directories with offset tracking, so ingestion is continuous and resumable. Logs flow through parsing, signature clustering, embedding, and upsert into Postgres — vectors into a pgvector HNSW index, text into a ParadeDB BM25 full-text index. Queries run both retrievers and fuse their rankings with Reciprocal Rank Fusion, with query expansion for recall; results surface as timeline and cluster views. An autonomous ReAct loop gathers evidence across those tools, then a separate LLM compilation step synthesizes the finding. Every investigation is stored with a step-by-step audit trail, and logs are partitioned into projects so services and environments stay isolated. The whole thing ships as multi-arch Docker images alongside Postgres and Redis.",
+      "architecture": "A background worker tails configured log directories with offset tracking, so ingestion is continuous and resumable. Logs flow through parsing, signature clustering, embedding, and upsert into Postgres — vectors into a pgvector HNSW index, text into a ParadeDB BM25 full-text index. Queries run both retrievers and fuse their rankings with Reciprocal Rank Fusion, with query expansion for recall; results surface as timeline and cluster views. The investigation runs as an explicit state machine (resolving → sweeping → gathering ⇄ reflecting → compiling), where each gathering pass reads evidence, forms a hypothesis, and probes further — the reason-act loop is the worker step, the state machine is the supervisor that owns budgets, confidence floors, clarification pauses, and resume. A separate LLM compilation step then synthesizes the finding. Every investigation is stored with a step-by-step audit trail, and logs are partitioned into projects so services and environments stay isolated. The whole thing ships as multi-arch Docker images alongside Postgres and Redis.",
       "design_decisions": [
+        "A hand-rolled state machine over adopting LangGraph — the explicit phase graph captures roughly 80% of the structural benefit at a fraction of the migration cost, and keeps the project free of framework coupling. Around 1,400 lines of battle-tested edge cases (graduated exits, reflection gating, confidence floors, observation compaction, tool dedup) would have needed reimplementation against a custom tool protocol and adapter layer.",
+        "The state machine supervises rather than replaces the reason-act loop — root-cause analysis cannot gather all evidence up front, because the next query depends on what the last observation revealed. Gathering and reflecting form a cycle, not a pipeline, so the agent keeps choosing where to look while the supervisor owns termination.",
         "Local-first and self-hosted with zero external dependencies — production logs are the single most sensitive text a company owns. An incident tool that ships them to a vendor's API is one nobody in a regulated org is allowed to install.",
         "Postgres as the single store for both retrievers — pgvector for similarity, ParadeDB for BM25, one database, one transaction boundary. Logs and their embeddings can never drift apart, and there's no second system to operate.",
         "Hybrid retrieval fused with RRF instead of vector-only — logs are dense with exact tokens (error codes, request IDs, hostnames) that embeddings blur into neighbours. RRF fuses on rank, so it needs no score normalization between two retrievers whose scores share no scale.",
@@ -46,15 +52,19 @@
       ],
       "challenges": [
         "Repetitive log lines drowned retrieval — a service emitting the same error thousands of times returned thousands of near-identical results and starved the context window. Solved with signature clustering, so a recurring template is one clustered result with counts and a time range instead of thousands of copies.",
+        "The original loop carried its control flow in flags spread across a single large function, which made resume logic replay message history and accumulate compatibility hacks. Extracting an explicit state object and declared transitions turned resume into load-state-and-dispatch, and made each phase independently testable.",
         "Embedding cost and latency sat directly on the ingest path — moved behind the background worker with offset tracking, and a Redis cache layer keeps repeated work out of the hot path.",
         "Scoping an investigation that begins with no known time bound — fixed windows either missed the cause or buried it. The progressive expansion ladder made scope something the loop discovers rather than something the user has to guess."
       ],
       "improvements": [
         "Distribute ingestion across nodes — the single-machine design is deliberate, but it's also the first thing to hit at real log volume.",
-        "Broaden the eval sets beyond the three scripted investigation datasets — RAGAS scores are only as honest as the scenarios behind them.",
+        "Broaden the eval sets beyond the scripted investigation datasets — RAGAS scores are only as honest as the scenarios behind them.",
         "Push cross-encoder reranking across every retrieval path, not just the primary one, so precision doesn't depend on which view the agent queried."
       ],
-      "links": { "github": "https://github.com/VarunGitGood/repi" },
+      "links": {
+        "github": "https://github.com/VarunGitGood/repi",
+        "demo": "https://repi-iota.vercel.app/"
+      },
       "meta": {
         "difficulty": "Advanced",
         "domains": ["AI/LLM", "RAG", "Observability", "Backend"],
@@ -62,13 +72,14 @@
           "local-first, zero external dependencies",
           "pgvector HNSW + ParadeDB BM25",
           "Reciprocal Rank Fusion",
-          "autonomous ReAct investigation loop",
-          "RAGAS-evaluated retrieval",
+          "state-machine-supervised investigation loop",
+          "RAGAS-evaluated across multiple providers",
           "5 LLM providers behind one interface"
         ],
         "questions": [
           "How do you know the retrieval is any good?",
           "Why hybrid search instead of pure vector retrieval?",
+          "Why a hand-rolled state machine instead of LangGraph?",
           "Why does it run entirely locally?",
           "How does it decide how far back in time to look?",
           "Why Postgres instead of a dedicated vector database?"
@@ -128,52 +139,93 @@
       }
     },
     {
-      "id": "configgen",
-      "title": "configgen",
-      "blurb": "LLM config generation · production",
-      "details": "A production system that turns 150+ versioned telecom specification documents into valid test configurations. Retrieval keeps it grounded in the right release, schema-constrained generation keeps the output machine-usable, and a validate-then-repair loop keeps it honest. Cut manual authoring time by 50% across 6+ engineering teams.",
-      "stack": ["Python", "FAISS", "LangChain"],
-      "region": [0.5, 0.8],
-      "architecture": "Specification documents are parsed on section boundaries, embedded, and stored in a FAISS index partitioned by document version. A generation request names the target function, the release, and the scenario; retrieval is scoped to that release's partition, and the retrieved sections are handed to a schema-constrained generation step that fills the target config schema directly. Output is checked against the same validator the test harness uses, and validation failures are fed back to the model for one bounded repair attempt before the draft reaches a human reviewer.",
+      "id": "fend",
+      "title": "Fend",
+      "blurb": "fleet-wide Linux hardening · Ansible + Electron",
+      "details": "A desktop tool for hardening Ubuntu fleets. Security modules are written as Ansible playbooks and pushed to grouped remote hosts over SSH, so an operator can apply a hardening standard across many machines from one GUI — with per-run logging and no agent installed on the targets.",
+      "stack": ["TypeScript", "Electron", "React", "Ansible"],
+      "region": [0.4, 0.75],
+      "architecture": "An Electron application with a React and TypeScript renderer drives Ansible underneath. Hosts are organized into inventory groups so hardening can be applied per environment rather than per machine, and authentication to targets is key-based rather than interactive. Security modules ship as playbooks, custom scripts can be added alongside the built-in set, and every run is logged so an operator can see what was applied where.",
       "design_decisions": [
-        "A FAISS index partitioned per document version rather than one flat index — a config assembled from mixed-release specs is worse than no config at all. Partitioning makes cross-version contamination structurally impossible instead of leaving it to ranking luck.",
-        "Schema-constrained structured output instead of free-form text plus a parser — the config schema is known up front, so the model fills it rather than writing prose that someone downstream has to regex back into structure.",
-        "A validate-then-repair loop instead of trusting the first generation — the generated config is run through the real validator, and the model gets the validator's own error message back with exactly one chance to fix it.",
-        "Deterministic decoding — identical inputs must produce an identical config, otherwise the reproducibility problem this was built to solve just moves somewhere else.",
-        "Retrieval over fine-tuning — the specification corpus changes every release, and a fine-tune is stale the day it ships."
+        "Ansible as the execution layer over a custom agent — it is agentless and idempotent, so hardening can be re-applied safely and targets need nothing installed. Re-running a playbook converging to the same state is exactly the property a hardening tool needs.",
+        "Playbooks as the unit of a security module — operators can read, audit, and extend a module without touching application code, which matters when the thing being changed is a machine's security posture.",
+        "Host grouping over per-machine operation — hardening standards apply to environments, not individual boxes, and grouping is what makes the tool usable beyond a handful of hosts.",
+        "A desktop GUI over a web service — the tool holds SSH access to production hosts, so keeping it on the operator's machine avoids standing up a privileged always-on service.",
+        "Key-based authentication to clients rather than prompting for credentials on every run."
       ],
       "tradeoffs": [
-        "One good retrieval plus prompt stuffing over a longer agentic loop — authors need a draft in seconds, not an investigation. Depth was spent on retrieval precision instead of loop count.",
-        "Human review stayed mandatory — the output is a strong draft, not an approved artifact. The 50% saved is authoring time, not review time, and overclaiming that would have killed adoption on day one.",
-        "Section-boundary chunking over fixed-size windows — it costs a parser per document format, but a parameter and its constraints must never land in two different chunks.",
-        "Scoped retrieval over broad retrieval with score filtering — narrower recall by construction, in exchange for never citing the wrong release."
+        "Ubuntu-focused rather than distro-agnostic — the playbooks encode Ubuntu-specific package and config paths, which keeps modules concrete at the cost of portability.",
+        "A desktop app means no central audit trail across operators — logs live per-run on the machine that ran them.",
+        "Coverage is scoped to the implemented modules rather than a full CIS benchmark, so it reduces attack surface without claiming certification against a standard."
       ],
       "challenges": [
-        "Retrieval kept surfacing the right parameter from the wrong release — score-based filtering proved unreliable, which is what drove the move to hard version partitioning.",
-        "Long specification tables lost their meaning when chunked — tables are now extracted and serialized whole alongside their captions, never split across chunks.",
-        "Silent underspecification: the model filled in plausible defaults for parameters the spec never covered. Unsupported fields must now be emitted as explicit nulls with a stated reason, so a gap shows up as a gap instead of an invention."
+        "Making remote execution legible in a GUI — an operator needs to know what a hardening run changed on which hosts, which drove per-run logging rather than fire-and-forget execution.",
+        "Bridging a desktop UI to an automation tool designed for the terminal, without hiding the playbooks that make the behavior auditable."
       ],
       "improvements": [
-        "A regression suite of golden configs per release, so a spec update or a model change that shifts output is caught before an author sees it.",
-        "Cross-encoder reranking over the FAISS candidates — retrieval is pure approximate nearest neighbour today, and the top hit isn't always the most specific one.",
-        "Per-field provenance in the output, so every generated value links back to the exact spec section it came from and review becomes checking citations instead of re-reading the spec."
+        "Validate against more Ubuntu versions, and expand the module set for broader security coverage.",
+        "Map modules to recognized benchmarks (such as CIS) so a run can be reported against a standard.",
+        "Dynamic inventory and in-app script editing, so hosts and modules can change without leaving the tool."
       ],
-      "links": { "note": "internal production system — source not public" },
+      "links": { "github": "https://github.com/VarunGitGood/Fend" },
       "meta": {
-        "difficulty": "Advanced",
-        "domains": ["AI/LLM", "RAG", "Structured Output", "Telecom"],
+        "difficulty": "Intermediate",
+        "domains": ["Security", "Infrastructure", "Automation", "Desktop"],
         "highlights": [
-          "150+ versioned specification documents",
-          "version-partitioned FAISS retrieval",
-          "schema-constrained generation",
-          "validate-then-repair loop",
-          "50% less manual authoring across 6+ teams"
+          "agentless, idempotent hardening via Ansible",
+          "grouped fleet management over SSH",
+          "extensible playbook-based security modules",
+          "per-run logging for auditability"
         ],
         "questions": [
-          "How does it avoid mixing up document versions?",
-          "How do you stop an LLM from inventing config values?",
-          "Why retrieval instead of fine-tuning on the specs?",
-          "What did it actually save, and what still needs a human?"
+          "What does system hardening actually do?",
+          "Why Ansible instead of a custom agent?",
+          "How does it scale past a handful of hosts?",
+          "What are its limits today?"
+        ]
+      }
+    },
+    {
+      "id": "shrinkr",
+      "title": "Shrinkr",
+      "blurb": "URL shortener · Go/Fiber CLI + API",
+      "details": "A URL shortener with a Cobra command-line client and a Fiber backend. It supports expiring links, secret-code-protected URLs, and browser-based SSO login, with Redis in front of MongoDB so redirects resolve from cache rather than the database.",
+      "stack": ["Go", "Fiber", "Cobra", "Redis", "MongoDB"],
+      "region": [0.15, 0.65],
+      "architecture": "A Cobra CLI handles authentication and link management, talking to a Fiber HTTP backend. Redis fronts MongoDB: short codes resolve from cache on the read path, with MongoDB as the source of truth for link records, ownership, expiry, and protection. Login runs through browser-based Google SSO so credentials never pass through the terminal.",
+      "design_decisions": [
+        "Redis in front of MongoDB rather than a single store — redirection is a read-dominated, latency-sensitive path, and it deserves an in-memory lookup while durable link metadata stays in the database.",
+        "A CLI as the primary client — shortening a URL is a one-line action, and a terminal client fits the workflow better than a page load for a developer audience.",
+        "Browser-based SSO rather than terminal credential entry — the CLI hands off to the browser for Google auth, so passwords never touch the shell or its history.",
+        "Expiry and secret-code protection as first-class link properties rather than bolt-ons, so access control is enforced at resolution time."
+      ],
+      "tradeoffs": [
+        "Split client and server repositories — clean separation, but it means two deployables and two things to keep in version step.",
+        "Cache-fronted reads accept a small consistency window on link updates in exchange for redirect latency.",
+        "A CLI-first client narrows the audience to developers; there is no general web UI."
+      ],
+      "challenges": [
+        "Keeping authentication usable in a terminal tool without handling passwords directly, which is what pushed login into the browser SSO flow.",
+        "Designing the cache and database split so that expiry and protected-link rules are still enforced when a redirect is served from cache rather than the database."
+      ],
+      "improvements": [
+        "Analytics per link (hit counts, referrers) — the obvious next feature for a shortener and a natural fit for the existing Redis layer.",
+        "Custom aliases and rate limiting on resolution.",
+        "Consolidate the CLI and API repositories, and add end-to-end tests across the two."
+      ],
+      "links": { "github": "https://github.com/VarunGitGood/Shrinkr" },
+      "meta": {
+        "difficulty": "Intermediate",
+        "domains": ["Backend", "Go", "CLI"],
+        "highlights": [
+          "Redis-cached redirect path over MongoDB",
+          "Cobra CLI with browser SSO handoff",
+          "expiring and secret-protected links"
+        ],
+        "questions": [
+          "Why Redis and MongoDB together?",
+          "How does SSO work from a command-line tool?",
+          "What would you change if it had to scale?"
         ]
       }
     }
@@ -183,10 +235,11 @@
       "group": "AI / LLM",
       "items": [
         ["RAG Pipelines", 90],
+        ["Hybrid Search & Reranking", 88],
         ["pgvector · FAISS", 88],
-        ["Reranking & Hybrid Search", 86],
-        ["ReAct Agents", 82],
-        ["LangChain", 84]
+        ["Retrieval Evaluation (RAGAS)", 84],
+        ["Agent Orchestration", 84],
+        ["LLM Serving Concepts", 72]
       ]
     },
     {
@@ -195,18 +248,18 @@
         ["Go", 88],
         ["Python", 88],
         ["TypeScript", 86],
-        ["C++", 72],
-        ["SQL", 84]
+        ["SQL", 84],
+        ["C++", 72]
       ]
     },
     {
       "group": "Backend & Systems",
       "items": [
-        ["FastAPI", 86],
-        ["NestJS", 84],
-        ["gRPC", 82],
         ["PostgreSQL", 88],
-        ["Redis", 84]
+        ["FastAPI", 86],
+        ["Redis", 84],
+        ["NestJS", 84],
+        ["gRPC", 82]
       ]
     },
     {
@@ -214,9 +267,9 @@
       "items": [
         ["Docker", 88],
         ["Kubernetes", 84],
-        ["RabbitMQ", 78],
+        ["CI/CD Pipelines", 84],
         ["S3 · Object Storage", 80],
-        ["CI/CD Pipelines", 84]
+        ["RabbitMQ", 78]
       ]
     }
   ],
@@ -238,12 +291,6 @@
       "org": "Trijog",
       "period": "Feb—Apr 2024",
       "summary": "Architected a modular NestJS LMS backend with role-based access control and an async media pipeline (Bull + FFmpeg) transcoding uploads to adaptive-bitrate HLS — upload-to-stream went from 30 minutes to 5. Secured delivery with a Cloudflare Worker CDN proxy authorizing every HLS segment."
-    },
-    {
-      "role": "B.Tech, Computer Science",
-      "org": "IIIT Jabalpur",
-      "period": "2021—2025",
-      "summary": "Winner of Smart India Hackathon 2023 (from 50,000+ nationwide submissions). Selected for Code for GovTech (C4GT), contributing to government-grade open-source digital public infrastructure. LeetCode 1728 — top 11%, 600+ problems solved."
     }
   ],
   "blogs": [],
