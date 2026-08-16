@@ -217,6 +217,7 @@ export function initBackground(): void {
   const gl = canvas.getContext("webgl2", { antialias: false, alpha: false });
   if (!gl) {
     canvas.style.background = "radial-gradient(120% 120% at 50% 40%, #0e2b2b 0%, #0b0c0f 70%)";
+    bus.emit("bgready"); // no WebGL2 — the boot must not wait for a frame that never comes
     return;
   }
 
@@ -417,8 +418,14 @@ export function initBackground(): void {
     // warm up the dye field, then draw a single static frame
     for (let i = 0; i < 40; i++) simPass(0);
     renderPass(0);
+    bus.emit("bgready");
   } else {
-    requestAnimationFrame(frame);
+    // shader link + first draw are the expensive part; tell the boot timeline
+    // once a real frame is on screen so its animation doesn't share that stall
+    requestAnimationFrame((ms) => {
+      frame(ms);
+      bus.emit("bgready");
+    });
     setTimeout(() => boost(0.9), 2760); // flare as the name materializes
   }
 }

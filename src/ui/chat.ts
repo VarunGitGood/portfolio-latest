@@ -19,14 +19,23 @@ const used = () => Number(localStorage.getItem("ask_used") || "0");
 const bump = () => localStorage.setItem("ask_used", String(used() + 1));
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 
+// The model writes light markdown. Escape first, then re-introduce only the
+// three marks it actually uses — anything else would show up as literal
+// asterisks to a recruiter. `.msg-a` is pre-wrap, so newlines need no work.
+const md = (s: string) =>
+  esc(s)
+    .replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>")
+    .replace(/`([^`\n]+)`/g, "<code>$1</code>")
+    .replace(/^[ \t]*[-*]\s+/gm, "• ");
+
 // The model ends each answer with "sources: a, b" — render that line as a
 // ✓-checked footer instead of body text so answers visibly cite the docs.
 function renderAnswer(text: string): string {
   const m = text.match(/\n\s*sources:\s*(.+)\s*$/i);
-  if (!m) return esc(text);
+  if (!m) return md(text);
   const body = text.slice(0, m.index);
   const items = m[1].split(",").map((s) => `✓ ${esc(s.trim())}`);
-  return `${esc(body.trimEnd())}<span class="msg-src">${items.join("&ensp;")}</span>`;
+  return `${md(body.trimEnd())}<span class="msg-src">${items.join("&ensp;")}</span>`;
 }
 
 function mockAnswer(q: string, onToken: (t: string) => void): Promise<void> {
@@ -73,19 +82,22 @@ export function initChat(): void {
   });
   measureCluster(); // the chip row's real height is what positions the tabs
   if (used() > 0) hideSugg();
-  // chips trickle in after the askbar lands (boot reveals it ~3.3s)
+  // chips trickle in after the askbar lands — offset is measured from the boot
+  // timeline's start, not page load, since boot waits on the GL field
   else if (!reduce) {
     const chips = sugg.querySelectorAll<HTMLElement>(".sq");
     chips.forEach((c) => (c.style.opacity = "0"));
-    animate(chips, {
-      opacity: { to: [0, 1], duration: 380, ease: "outQuad" },
-      // little dip down, then settle back up
-      translateY: [
-        { to: 8, duration: 260, ease: "outQuad" },
-        { to: 0, duration: 340, ease: "outQuad" },
-      ],
-      delay: stagger(70, { start: 3290 }),
-    });
+    bus.on("boot", () =>
+      animate(chips, {
+        opacity: { to: [0, 1], duration: 380, ease: "outQuad" },
+        // little dip down, then settle back up
+        translateY: [
+          { to: 8, duration: 260, ease: "outQuad" },
+          { to: 0, duration: 340, ease: "outQuad" },
+        ],
+        delay: stagger(70, { start: 3290 }),
+      }),
+    );
   }
 
   function toast(msg: string) {
@@ -139,7 +151,7 @@ export function initChat(): void {
       const follow = convo.scrollHeight - convo.scrollTop - convo.clientHeight < 80;
       text += tok;
       trace.classList.add("done"); // the answer is landing — the trace dims out of the way
-      a.innerHTML = esc(text) + '<span class="blinkc">▌</span>';
+      a.innerHTML = md(text) + '<span class="blinkc">▌</span>';
       if (follow) convo.scrollTop = convo.scrollHeight;
     };
     const onTrace = (m: string) => {

@@ -1,14 +1,46 @@
 import { createTimeline, stagger, svg } from "animejs";
+import { bus } from "../bus";
 import { content } from "../data";
 import { startTaglines } from "./hero";
 
-// Boot: the frame doesn't scale in — it condenses out of the smoke. Backdrop
-// blur ramps 0→15px (glass fogging into existence), a light traces the border,
-// then the name sharpens letter by letter and the UI follows.
+// Boot: the frame doesn't scale in — it condenses out of the smoke. A light
+// traces the border, the glass fades up, then the name materializes letter by
+// letter and the UI follows.
 
 const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+// Every face the boot timeline paints. `document.fonts.ready` alone is not
+// enough: at gate time the page shows almost no text, so nothing is pending and
+// it resolves instantly — then the name lands in Geist mid-animation and the
+// fetch + decode stalls the frame. Requesting them by hand forces that work to
+// happen behind the dots instead.
+const FACES = ['600 88px "Geist Variable"', '400 16px "Inter Variable"', '400 17px "JetBrains Mono"'];
+
+/** Hold behind the dots until the GL field has drawn a frame and the fonts are
+ *  decoded — with a ceiling, so neither can keep the page hostage. */
+function whenReady(run: () => void): void {
+  let started = false;
+  const go = () => {
+    if (started) return;
+    started = true;
+    const dots = document.getElementById("preload");
+    dots?.classList.add("gone");
+    setTimeout(() => dots?.remove(), 500);
+    run();
+  };
+  const bg = new Promise<void>((res) => bus.on("bgready", () => res()));
+  const fonts = document.fonts
+    ? Promise.all(FACES.map((f) => document.fonts.load(f).catch(() => {}))).then(() => document.fonts.ready)
+    : Promise.resolve();
+  Promise.all([bg, fonts]).then(go);
+  setTimeout(go, 3000);
+}
+
 export function initBoot(): void {
+  whenReady(runBoot);
+}
+
+function runBoot(): void {
   const frame = document.getElementById("frame")!;
   const nameEl = document.getElementById("name")!;
   const askbar = document.getElementById("askbar")!;
@@ -51,33 +83,41 @@ export function initBoot(): void {
   document.getElementById("stage")!.appendChild(lineSvg);
   const [line] = svg.createDrawable(rect);
 
-  // the line closes its loop first; only then does the glass come into being
+  // t0 for everything else that has to land on this timeline (the chip row)
+  bus.emit("boot");
+
+  // Everything here animates opacity/transform only. `filter: blur()` on the
+  // letters re-rasterized 11 text layers per frame while the backdrop-filter
+  // was already resampling the whole frame — that pair was the boot stutter.
+  // Scale + lift reads as the same "condensing out of the smoke" for free.
   createTimeline({ defaults: { ease: "outCubic" }, playbackRate: 1.05 })
     .add(line, { draw: ["0 0", "0 1"], duration: 1500, ease: "inOutCubic" }, 150)
-    .add(frame, { opacity: [0, 1], duration: 700, ease: "outQuad" }, 1650)
     .add(
       frame,
       {
-        "--boot-blur": ["0px", "15px"],
+        opacity: [0, 1],
         duration: 1000,
-        ease: "inOutQuad",
+        ease: "outQuad",
         onComplete: () => frame.classList.add("booted"), // hand off to the resting border glow
       },
-      1700,
+      1650,
     )
     .add(lineSvg, { opacity: [1, 0], duration: 500, ease: "outQuad", onComplete: () => lineSvg.remove() }, 1800)
     .add(
       letters,
       {
         opacity: [0, 1],
-        filter: ["blur(10px)", "blur(0px)"],
+        scale: [0.9, 1],
+        translateY: [6, 0],
         duration: 600,
         delay: stagger(22),
         onComplete: () => startTaglines(),
       },
       2150,
     )
-    .add(askbar, { opacity: [0, 1], filter: ["blur(6px)", "blur(0px)"], duration: 500 }, 2800)
-    .add(dock, { opacity: [0, 1], filter: ["blur(6px)", "blur(0px)"], duration: 500 }, 3000)
+    // opacity only — both are centered by their own transform, which an
+    // anime.js translate would overwrite and never give back
+    .add(askbar, { opacity: [0, 1], duration: 500 }, 2800)
+    .add(dock, { opacity: [0, 1], duration: 500 }, 3000)
     .add(credit, { opacity: [0, 1], duration: 400, ease: "outQuad" }, 3150);
 }

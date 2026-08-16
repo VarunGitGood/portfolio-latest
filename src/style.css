@@ -57,8 +57,11 @@ body::after {
 .frame {
   width: 81vw; height: 81vh; border-radius: 24px; position: relative; overflow: hidden;
   background: linear-gradient(160deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01));
-  /* boot timeline ramps --boot-blur 0→15px — the glass fogs into existence */
-  backdrop-filter: blur(var(--boot-blur, 15px)) saturate(115%); -webkit-backdrop-filter: blur(var(--boot-blur, 15px)) saturate(115%);
+  /* Static, never animated: this is 81vw × 81vh of backdrop-filter sampling a
+     canvas that already repaints every frame. Ramping the blur re-rasterized
+     that whole area per frame and was the boot stutter. The glass now fogs in
+     via opacity, which the compositor handles for free. */
+  backdrop-filter: blur(15px) saturate(115%); -webkit-backdrop-filter: blur(15px) saturate(115%);
   border: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.02) inset, 0 34px 90px -24px rgba(0, 0, 0, 0.7), 0 0 50px -14px rgba(255, 255, 255, 0.04);
   opacity: 0;
@@ -176,6 +179,8 @@ h1 .ch {
 .tl { font-family: var(--font-mono); font-size: 11px; color: var(--accent-deep); letter-spacing: 0.02em; }
 .msg-trace.done .tl { color: var(--faint); }
 .msg-a { color: var(--text); line-height: 1.72; font-size: 16px; white-space: pre-wrap; max-width: 100%; }
+.msg-a b { font-weight: 600; color: var(--accent-light); }
+.msg-a code { font-family: var(--font-mono); font-size: 0.88em; color: var(--accent-light); background: rgba(124, 196, 196, 0.1); border-radius: 4px; padding: 1px 5px; }
 .msg-a .blinkc { color: var(--accent-light); animation: blink 1.05s steps(1) infinite; }
 .msg-err { color: var(--faint); font-family: var(--font-mono); font-size: 12.5px; }
 /* "sources consulted" footer under an answer — grounding, visibly */
@@ -313,6 +318,19 @@ h1 .ch {
 .contact-links.on { opacity: 1; transform: none; }
 .contact-links a { font-family: var(--font-mono); font-size: 14px; color: var(--text); text-decoration: none; background: rgba(255, 255, 255, 0.035); border: 1px solid var(--border); border-radius: 9px; padding: 9px 14px; }
 .contact-links a:hover { border-color: var(--accent); color: var(--accent-light); }
+
+/* ---- preloader: holds the stage until the GL field and the fonts are up,
+   so the boot animation never shares a frame with a shader link ---- */
+.preload {
+  position: fixed; inset: 0; z-index: 30; display: flex; gap: 9px;
+  align-items: center; justify-content: center; pointer-events: none;
+  transition: opacity 0.4s ease;
+}
+.preload i { width: 6px; height: 6px; border-radius: 50%; background: var(--accent-deep); animation: preDot 1.1s ease-in-out infinite; }
+.preload i:nth-child(2) { animation-delay: 0.16s; }
+.preload i:nth-child(3) { animation-delay: 0.32s; }
+@keyframes preDot { 0%, 100% { opacity: 0.25; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-4px); } }
+.preload.gone { opacity: 0; }
 
 /* ---- toast (rate limit etc) ---- */
 .toast {
