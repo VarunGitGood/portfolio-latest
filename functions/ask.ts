@@ -596,6 +596,24 @@ async function pumpUpstream(
 
 /* ------------------------------------------------------------- handler ---- */
 
+/** Questions this IP has left today. The askbar's counter is otherwise pure
+ *  localStorage, which a visitor can clear to "reset" it; the server has always
+ *  been the real gate, and this is what lets the number come from the gate. */
+async function remainingFor(env: Env, request: Request): Promise<number> {
+  const kv = env.RATE;
+  if (!kv) return PER_IP_DAILY; // unbound KV = untracked, same as the POST path
+  const day = new Date().toISOString().slice(0, 10);
+  const ip = request.headers.get("cf-connecting-ip") || "unknown";
+  const n = Number((await kv.get(`ip:${ip}:${day}`).catch(() => null)) || 0);
+  return Math.max(0, PER_IP_DAILY - n);
+}
+
+/** GET /ask reports the remaining count without spending one. */
+export const onRequestGet = async (ctx: { request: Request; env: Env }): Promise<Response> =>
+  new Response(JSON.stringify({ remaining: await remainingFor(ctx.env, ctx.request) }), {
+    headers: { "content-type": "application/json", "cache-control": "no-store" },
+  });
+
 export const onRequestPost = async (ctx: {
   request: Request;
   env: Env;

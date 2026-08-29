@@ -1,6 +1,6 @@
 import { animate, stagger } from "animejs";
 import { bus } from "../bus";
-import { ask, AskError, type Cite, type StepEvent } from "./ask";
+import { ask, askRemaining, AskError, type Cite, type StepEvent } from "./ask";
 import { dockFrame, scrollToEnd } from "./stream";
 import { measureCluster } from "./dock";
 import { runAction } from "./actions";
@@ -113,6 +113,15 @@ export function initChat(): void {
   // suggested questions - onboarding for visitors who don't know what to ask;
   // gone for good after the first real question
   const hideSugg = () => sugg.classList.add("gone");
+  // the count belongs to the server, not the browser: clearing localStorage no
+  // longer hands back a question, it just gets corrected on the next sync
+  const syncRemaining = async () => {
+    const n = await askRemaining();
+    if (n === null) return;
+    localStorage.setItem("ask_used", String(LIMIT - n));
+    refreshKbd();
+    if (n < LIMIT) hideSugg();
+  };
   sugg.innerHTML = content.suggestedQuestions
     .map((s) => `<span class="sq" data-q="${esc(s.question)}">${esc(s.label)}</span>`)
     .join("");
@@ -261,6 +270,7 @@ export function initChat(): void {
       input.disabled = false;
       input.focus();
       refreshKbd();
+      void syncRemaining();
     }
   }
 
@@ -277,4 +287,5 @@ export function initChat(): void {
     }
   });
   refreshKbd();
+  void syncRemaining();
 }

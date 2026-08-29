@@ -35,6 +35,21 @@ export interface AskHandlers {
   unverified: (blocks: number[]) => void;
 }
 
+/** GET /ask - how many questions the server will still answer for this visitor
+ *  today. The askbar's counter is otherwise pure localStorage, which a visitor
+ *  can clear; this is the number the server actually gates on. null when the
+ *  endpoint is not there (vite dev, offline), in which case leave the count be. */
+export async function askRemaining(): Promise<number | null> {
+  try {
+    const res = await fetch("/ask");
+    if (!res.ok) return null;
+    const body = (await res.json()) as { remaining?: number };
+    return typeof body.remaining === "number" ? body.remaining : null;
+  } catch {
+    return null;
+  }
+}
+
 /** POST /ask streams newline-delimited JSON events; chunks split mid-line, so
  *  the tail is carried over until its newline arrives. */
 export async function ask(question: string, on: AskHandlers): Promise<void> {

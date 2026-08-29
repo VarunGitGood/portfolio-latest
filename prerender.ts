@@ -44,15 +44,19 @@ const c = content as unknown as Dict & {
   resumeUrl: string;
 };
 
-const title = `${c.name} - ${c.role}`;
-const description = `${c.name}, ${c.role}. ${c.credentials}. ${c.about.proof[0]}. ${c.about.proof[1]}.`;
+// `role` is optional. Left empty it used to render a dangling separator into the
+// tab title ("Varun Singh - "), a stray comma into the meta description, and an
+// empty <p> into the hero, so every consumer of it degrades on its own here.
+const role = c.role.trim();
+const title = role ? `${c.name} \u00b7 ${role}` : c.name;
+const description = `${c.name}${role ? `, ${role}` : ""}. ${c.credentials}. ${c.about.proof[0]}. ${c.about.proof[1]}.`;
 
 function meta(): string {
   const person = {
     "@context": "https://schema.org",
     "@type": "Person",
     name: c.name,
-    jobTitle: c.role,
+    ...(role ? { jobTitle: role } : {}),
     description: c.about.bio,
     url: c.siteUrl,
     email: `mailto:${c.contact.email}`,
@@ -85,7 +89,7 @@ function hero(): string {
     `<h1><span id="name">${esc(c.name)}</span></h1>\n` +
     `        <span class="esc-hint">esc</span>\n` +
     `        <div class="ident" id="ident">\n` +
-    `          <p class="ident-role">${esc(c.role)}</p>\n` +
+    (role ? `          <p class="ident-role">${esc(role)}</p>\n` : "") +
     `          <p class="ident-cred">${esc(c.credentials)}</p>\n` +
     `          <p class="ident-focus">${esc(c.focus)}</p>\n` +
     `        </div>`
