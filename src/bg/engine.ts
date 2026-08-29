@@ -1,15 +1,15 @@
 import { bus } from "../bus";
 
 /**
- * Living-infrastructure background — WebGL2 dye-advection field.
+ * Living-infrastructure background - WebGL2 dye-advection field.
  *
  * The "smoke" is a persistent single-channel dye texture (ping-ponged at half
  * resolution). Each frame:
- *   1. SIM pass — advect the dye semi-Lagrangian along a velocity field
+ *   1. SIM pass - advect the dye semi-Lagrangian along a velocity field
  *      (the cursor's motion pushes the dye where it passes), then relax the dye
  *      back toward an animated FBM "ambient" pattern so the field stays alive
  *      when idle and *returns* to flow after being disturbed.
- *   2. RENDER pass — map dye intensity through a graphite → deep-red → ember
+ *   2. RENDER pass - map dye intensity through a graphite → deep-red → ember
  *      ramp, add the click ink-drop, resting vertical gradient, and vignette.
  *
  * Because the cursor moves a persistent medium (not a coordinate lens), it
@@ -56,7 +56,7 @@ uniform vec2  uMouse;     // uv
 uniform vec2  uMouseVel;  // uv / frame
 uniform float uAspect;
 uniform float uEnergy;
-uniform float uConverge;  // 0..1 — pulls the smoke into a center vortex
+uniform float uConverge;  // 0..1 - pulls the smoke into a center vortex
 uniform float uRelease;   // 1 -> 0 impulse when the answer lands
 uniform vec2  uClickPos;  // uv
 uniform float uClickAge;  // seconds since click
@@ -71,7 +71,7 @@ float ambient(vec2 uv){
 }
 void main(){
   vec2 uv = gl_FragCoord.xy * uTexel;
-  // cursor velocity field — an anisotropic teardrop (elongates along motion)
+  // cursor velocity field - an anisotropic teardrop (elongates along motion)
   // with a noise-wobbled edge, so it's a natural moving shape, not a disc.
   // Uniform-gated: skip the fbm entirely while the cursor is still.
   vec2 vel = vec2(0.0);
@@ -92,7 +92,7 @@ void main(){
   float rad = length(toC) + 1e-4;
   vec2 tang = vec2(-toC.y, toC.x);                 // magnitude = rad
   // "thinking": gather inward (strong) + rotate with a radius-dependent angular
-  // speed — fast core, slower rim. That differential shear smears the dye into
+  // speed - fast core, slower rim. That differential shear smears the dye into
   // spinning spiral streaks. Gated: idle frames pay none of this noise.
   if (uConverge > 0.002) {
     float omega = mix(0.075, 0.016, smoothstep(0.0, 0.6, rad)); // core spins faster
@@ -140,7 +140,7 @@ void main(){
   vec2 uv = gl_FragCoord.xy / uRes;
   float n = texture(uDye, uv).r;
 
-  // thinking maelstrom: fbm sheared azimuthally around the center — ragged
+  // thinking maelstrom: fbm sheared azimuthally around the center - ragged
   // streaks smeared into a swirl, no countable arms, never repeats. The whole
   // core jitters so it reads unruly, not mechanical. Uniform-gated: the fbm
   // only runs while actually thinking.
@@ -165,10 +165,10 @@ void main(){
   float hot = smoothstep(0.58, 0.99, n + uEnergy * 0.12);
   col = mix(col, indigo, pow(hot, 2.0) * 0.55); // brightest veins shift indigo
 
-  // thinking blackout — outside the core the whole screen falls to black
+  // thinking blackout - outside the core the whole screen falls to black
   col *= 1.0 - uConverge * smoothstep(0.175, 0.66, cdist) * 0.88;
 
-  // faint warmth trailing a moving cursor — same teardrop shape, not a disc.
+  // faint warmth trailing a moving cursor - same teardrop shape, not a disc.
   // Gated: no per-pixel fbm while the cursor rests.
   if (uMouseGlow > 0.003) {
     vec2 md = uv - uMouse; md.x *= uAspect;
@@ -181,7 +181,7 @@ void main(){
     col += teal * exp(-rshape * 59.0 * rwob) * uMouseGlow * 0.14;
   }
 
-  // resting vertical gradient — lower half darker, ink can stir into it
+  // resting vertical gradient - lower half darker, ink can stir into it
   float grad = smoothstep(0.02, 0.95, uv.y);
   col *= mix(0.34, 1.0, grad);
 
@@ -217,7 +217,7 @@ export function initBackground(): void {
   const gl = canvas.getContext("webgl2", { antialias: false, alpha: false });
   if (!gl) {
     canvas.style.background = "radial-gradient(120% 120% at 50% 40%, #0e2b2b 0%, #0b0c0f 70%)";
-    bus.emit("bgready"); // no WebGL2 — the boot must not wait for a frame that never comes
+    bus.emit("bgready"); // no WebGL2 - the boot must not wait for a frame that never comes
     return;
   }
 
@@ -305,7 +305,7 @@ export function initBackground(): void {
       mouse.y = mouse.ty = H / 2;
     }
   }
-  // debounced — raw resize fires per-frame during a window drag and each call
+  // debounced - raw resize fires per-frame during a window drag and each call
   // rebuilds both sim FBO textures
   let resizeTimer: ReturnType<typeof setTimeout> | undefined;
   addEventListener("resize", () => {
@@ -402,7 +402,7 @@ export function initBackground(): void {
 
   function frame(ms: number) {
     const now = ms / 1000;
-    // ease the thinking effect up (fast) / down (faster now — the shockwave
+    // ease the thinking effect up (fast) / down (faster now - the shockwave
     // covers the transition back to the ambient field)
     const rate = convergeTarget > converge ? 0.06 : 0.045;
     converge += (convergeTarget - converge) * rate;

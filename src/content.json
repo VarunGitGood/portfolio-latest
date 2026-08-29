@@ -1,65 +1,108 @@
 {
   "name": "Varun Singh",
-  "taglines": [
-    "building the infra under LLMs",
-    "retrieval that returns the right thing",
-    "Go services that don't fall over"
-  ],
+  "siteUrl": "https://portfolio-latest-7kb.pages.dev",
+  "role": "",
+  "credentials": "Oracle SDE-1 · Go · Python · TypeScript",
+  "focus": "retrieval · agent orchestration · Go services",
   "suggestedQuestions": [
-    { "label": "show me his work", "question": "show me his projects" },
     {
-      "label": "why hybrid search?",
-      "question": "why hybrid search instead of pure vector?"
+      "label": "show me his strongest work",
+      "question": "what is Varun's strongest engineering work, and what makes it strong?"
     },
     {
-      "label": "in production?",
-      "question": "what has he shipped in production?"
+      "label": "what has he shipped?",
+      "question": "what has Varun actually shipped to production, with numbers?"
+    },
+    {
+      "label": "why hire him?",
+      "question": "what has Varun owned end to end, and what would he bring to a small engineering team?"
+    },
+    {
+      "label": "show me his resume",
+      "question": "open Varun's resume for me"
     }
   ],
   "about": {
-    "bio": "AI infrastructure engineer. I build the systems underneath LLMs — retrieval pipelines, agent loops, and the Go services that keep them fast under load. Most of my work is the unglamorous half of AI: making retrieval return the right chunk, making generation reproducible, and making the whole thing survive production traffic at 3am. Currently going deeper on the inference serving layer — batching, routing, and GPU utilization.",
+    "bio": "Backend and AI infrastructure engineer. I build retrieval systems, agent workflows, and the services underneath them - with a bias toward deterministic behavior, measurable performance, and production reliability. At Oracle I architected Composer, an AI workflow platform that turns 5G requirements into structured test plans and automation-ready bundles, and re-engineered the telemetry path behind it from 8 hours to 1.5. Outside work I build in the open: hybrid retrieval, Go concurrency primitives, and infrastructure tooling. Currently going deeper on inference serving - batching, routing, and GPU utilization.",
     "facts": [
       "SDE-1 @ Oracle",
       "IIIT Jabalpur '25",
       "SIH 2023 national winner",
       "Code for GovTech (C4GT)"
+    ],
+    "proof": [
+      "50% less manual authoring across 6+ network-function teams (Composer, Oracle)",
+      "telemetry retrieval 8h → 1.5h; 75.9% lower runtime over a 23.9k-request benchmark",
+      "LMS backend for 20k+ registered / 250+ peak concurrent users, built from scratch",
+      "video readiness 30 min → 5 min for 400+ videos across 5 HLS renditions"
     ]
   },
   "projects": [
     {
       "id": "repi",
       "title": "repi",
-      "blurb": "local-first log RCA · hybrid RAG · state-machine agent",
-      "details": "An autonomous log investigation engine that runs entirely on your own machine. It ingests distributed service logs, clusters them by signature, retrieves evidence with hybrid vector + BM25 search, and reasons through root cause in a state-machine-supervised investigation loop — no logs, no embeddings, nothing leaves the box.",
-      "stack": ["Python", "Postgres", "pgvector", "ParadeDB", "Redis"],
-      "region": [0.72, 0.5],
-      "architecture": "A background worker tails configured log directories with offset tracking, so ingestion is continuous and resumable. Logs flow through parsing, signature clustering, embedding, and upsert into Postgres — vectors into a pgvector HNSW index, text into a ParadeDB BM25 full-text index. Queries run both retrievers and fuse their rankings with Reciprocal Rank Fusion, with query expansion for recall; results surface as timeline and cluster views. The investigation runs as an explicit state machine (resolving → sweeping → gathering ⇄ reflecting → compiling), where each gathering pass reads evidence, forms a hypothesis, and probes further — the reason-act loop is the worker step, the state machine is the supervisor that owns budgets, confidence floors, clarification pauses, and resume. A separate LLM compilation step then synthesizes the finding. Every investigation is stored with a step-by-step audit trail, and logs are partitioned into projects so services and environments stay isolated. The whole thing ships as multi-arch Docker images alongside Postgres and Redis.",
+      "blurb": "local-first log RCA · hybrid retrieval · resumable agent",
+      "details": "An autonomous log-investigation engine for distributed systems. It clusters repetitive logs by signature, retrieves evidence with BM25 + pgvector/HNSW fused through Reciprocal Rank Fusion, and investigates root cause through an explicit, resumable state machine. Every step is persisted for auditability, and confidence is constrained server-side by the evidence actually cited. It can run fully locally with Ollama; hosted-model adapters are optional.",
+      "stack": [
+        "Python",
+        "Postgres",
+        "pgvector",
+        "ParadeDB",
+        "FastEmbed"
+      ],
+      "region": [
+        0.72,
+        0.5
+      ],
+      "architecture": "Logs are parsed and grouped by normalized signatures before embedding, reducing repetitive noise without losing representative examples. Vector retrieval runs through pgvector/HNSW and lexical retrieval through ParadeDB BM25; RRF combines ranks without forcing incompatible score scales into one normalization scheme. Investigation is supervised by a hand-rolled finite-state machine (resolving → sweeping → gathering ⇄ reflecting → compiling). Thoughts, actions and observations persist to Postgres, so clarification can pause a run and resume from stored state. Search tools include filtered retrieval, cross-service time-window scans, timeline reconstruction, literal-ID lookup and service summaries. Deterministic server-side confidence rules downgrade unsupported conclusions.",
       "design_decisions": [
-        "A hand-rolled state machine over adopting LangGraph — the explicit phase graph captures roughly 80% of the structural benefit at a fraction of the migration cost, and keeps the project free of framework coupling. Around 1,400 lines of battle-tested edge cases (graduated exits, reflection gating, confidence floors, observation compaction, tool dedup) would have needed reimplementation against a custom tool protocol and adapter layer.",
-        "The state machine supervises rather than replaces the reason-act loop — root-cause analysis cannot gather all evidence up front, because the next query depends on what the last observation revealed. Gathering and reflecting form a cycle, not a pipeline, so the agent keeps choosing where to look while the supervisor owns termination.",
-        "Local-first and self-hosted with zero external dependencies — production logs are the single most sensitive text a company owns. An incident tool that ships them to a vendor's API is one nobody in a regulated org is allowed to install.",
-        "Postgres as the single store for both retrievers — pgvector for similarity, ParadeDB for BM25, one database, one transaction boundary. Logs and their embeddings can never drift apart, and there's no second system to operate.",
-        "Hybrid retrieval fused with RRF instead of vector-only — logs are dense with exact tokens (error codes, request IDs, hostnames) that embeddings blur into neighbours. RRF fuses on rank, so it needs no score normalization between two retrievers whose scores share no scale.",
-        "Progressive time-window expansion (10 → 60 → 360 → 1440 minutes) instead of one fixed window — an investigation usually starts with no known time bound. Widening in steps finds local causes fast and only pays for the wide search when the narrow one comes up empty.",
-        "A provider abstraction over OpenAI, Anthropic, Mistral, Gemini and Ollama — no single vendor is load-bearing, and the Ollama path is what makes the local-first claim actually true end to end.",
-        "Signature clustering before embedding — the unit of meaning in logs is the template, not the line."
+        "A hand-rolled finite-state machine instead of LangGraph - the workflow has a small, explicit phase graph, so a dispatch table keeps transitions debuggable without framework coupling.",
+        "Signature clustering before embedding - recurring log templates become one evidence unit with representative examples instead of flooding retrieval with near-duplicates.",
+        "BM25 + vector retrieval fused with RRF - logs contain exact identifiers and error tokens that embeddings can blur, while rank fusion avoids score-normalization problems.",
+        "Progressive time-window expansion (10 → 60 → 360 → 1440 minutes) - start narrow for precision, then widen only when the evidence is insufficient.",
+        "Postgres as the shared store for logs, embeddings and investigation state - one persistence boundary keeps retrieval data and resumable agent state consistent."
       ],
       "tradeoffs": [
-        "Single-machine ceiling in exchange for operational simplicity — it runs on one box with Postgres and Redis, which caps throughput but means the install is a docker compose up rather than a platform team.",
-        "A separate LLM compilation step over answering straight out of the loop — one more call and a bit more latency, but evidence gathering and synthesis are different jobs and mixing them made both worse.",
-        "A hard call-rate cap (LLM_MAX_CALLS_PER_MIN) over letting the agent run free — an agent with no budget will happily spend real money re-confirming what it already knew.",
-        "Rules-based intent extraction on the query (service, timeframe, log level) over sending everything to the model — cheaper, deterministic, and it turns a vague question into a scoped retrieval before any token is spent."
+        "Single-machine architecture favors operational simplicity over horizontal ingest scale.",
+        "A separate compilation call adds latency, but keeps evidence gathering separate from final synthesis.",
+        "Hard iteration and provider-call budgets trade some autonomy for predictable cost and termination.",
+        "RRF discards the underlying scores and keeps only ranks - it is robust across incompatible scorers, but it cannot express how much better rank 1 was than rank 2."
       ],
       "challenges": [
-        "Repetitive log lines drowned retrieval — a service emitting the same error thousands of times returned thousands of near-identical results and starved the context window. Solved with signature clustering, so a recurring template is one clustered result with counts and a time range instead of thousands of copies.",
-        "The original loop carried its control flow in flags spread across a single large function, which made resume logic replay message history and accumulate compatibility hacks. Extracting an explicit state object and declared transitions turned resume into load-state-and-dispatch, and made each phase independently testable.",
-        "Embedding cost and latency sat directly on the ingest path — moved behind the background worker with offset tracking, and a Redis cache layer keeps repeated work out of the hot path.",
-        "Scoping an investigation that begins with no known time bound — fixed windows either missed the cause or buried it. The progressive expansion ladder made scope something the loop discovers rather than something the user has to guess."
+        "Repetitive logs dominated retrieval until signature clustering collapsed recurring templates into bounded evidence clusters.",
+        "Resume logic was brittle while control flow lived in flags; explicit states and persisted steps turned recovery into load-state-and-dispatch.",
+        "Unknown incident windows either missed causes or returned too much noise; progressive expansion made the search scope part of the investigation."
       ],
       "improvements": [
-        "Distribute ingestion across nodes — the single-machine design is deliberate, but it's also the first thing to hit at real log volume.",
-        "Broaden the eval sets beyond the scripted investigation datasets — RAGAS scores are only as honest as the scenarios behind them.",
-        "Push cross-encoder reranking across every retrieval path, not just the primary one, so precision doesn't depend on which view the agent queried."
+        "Run a controlled ablation across vector-only, BM25-only and RRF-hybrid retrieval on the existing evaluation suite.",
+        "Add and benchmark cross-encoder reranking; it is not part of the current retrieval path.",
+        "Distribute ingestion when real workloads exceed the deliberate single-machine ceiling."
+      ],
+      "claims": [
+        {
+          "status": "implemented",
+          "text": "Hybrid retrieval: ParadeDB BM25 + pgvector/HNSW fused with Reciprocal Rank Fusion."
+        },
+        {
+          "status": "implemented",
+          "text": "Resumable investigation: a hand-rolled finite-state machine whose thoughts, actions and observations persist to Postgres, so a paused run resumes from stored state."
+        },
+        {
+          "status": "implemented",
+          "text": "Deterministic server-side confidence gating that downgrades conclusions the cited evidence does not support."
+        },
+        {
+          "status": "measured",
+          "text": "Docker image reduced from 5.58 GB to 1.12 GB by migrating embeddings to ONNX with FastEmbed."
+        },
+        {
+          "status": "measured",
+          "text": "A 21-question retrieval suite plus scripted incident evaluations. This is a functional suite, not a published benchmark against a public dataset."
+        },
+        {
+          "status": "planned",
+          "text": "Cross-encoder reranking and a vector-only / BM25-only / hybrid ablation. Neither exists in the code today."
+        }
       ],
       "links": {
         "github": "https://github.com/VarunGitGood/repi",
@@ -67,74 +110,123 @@
       },
       "meta": {
         "difficulty": "Advanced",
-        "domains": ["AI/LLM", "RAG", "Observability", "Backend"],
+        "domains": [
+          "AI/LLM",
+          "RAG",
+          "Observability",
+          "Backend"
+        ],
         "highlights": [
-          "local-first, zero external dependencies",
-          "pgvector HNSW + ParadeDB BM25",
-          "Reciprocal Rank Fusion",
-          "state-machine-supervised investigation loop",
-          "RAGAS-evaluated across multiple providers",
-          "5 LLM providers behind one interface"
+          "BM25 + pgvector/HNSW fused with RRF",
+          "resumable hand-rolled investigation state machine",
+          "deterministic evidence-based confidence gating",
+          "Docker image reduced from 5.58 GB to 1.12 GB",
+          "21-question retrieval suite + scripted incident evaluations"
         ],
         "questions": [
+          "Why a hand-rolled state machine instead of LangGraph?",
+          "What trade-off did he make in repi's retrieval?",
           "How do you know the retrieval is any good?",
           "Why hybrid search instead of pure vector retrieval?",
-          "Why a hand-rolled state machine instead of LangGraph?",
-          "Why does it run entirely locally?",
           "How does it decide how far back in time to look?",
-          "Why Postgres instead of a dedicated vector database?"
+          "Why Postgres instead of a dedicated vector database?",
+          "Show me the state machine in the source."
         ]
       }
     },
     {
       "id": "collapser",
       "title": "collapser-grpc",
-      "blurb": "gRPC request collapsing · 82 ns/op",
-      "details": "An open-source Go sidecar that kills thundering herds. When thousands of callers ask for the same thing at the same moment, exactly one request reaches the backend and everyone else attaches to that result — schema-agnostic, zero-allocation on the hot path, with Prometheus metrics out of the box.",
-      "stack": ["Go", "gRPC"],
-      "region": [0.25, 0.3],
-      "architecture": "The proxy sits between clients and a gRPC backend. Each arriving request is keyed by SHA256(method + payload), checked against a 100ms TTL result cache, then against the in-flight map. The first caller for a key becomes the leader and calls the backend on a detached context; every later caller becomes a follower and waits on that same result, which is broadcast to all of them on completion. A passthrough codec forwards raw gRPC frames without ever needing service descriptors, so it works against any protobuf service with zero schema knowledge. One persistent *grpc.ClientConn is held for the life of the process, so every request rides existing HTTP/2 streams instead of paying for a handshake. Streaming RPCs are detected and bypassed, panics are recovered, and shutdown drains in-flight work.",
+      "blurb": "gRPC request collapsing · 82 ns/op dedupe hot path",
+      "details": "An open-source Go sidecar for suppressing thundering-herd traffic. Equivalent unary requests share one backend call while followers wait for the same result. The proxy is schema-agnostic, uses detached backend execution so one cancelled caller cannot kill shared work, and exposes collapse, cache, inflight and backend-latency metrics through Prometheus.",
+      "stack": [
+        "Go",
+        "gRPC"
+      ],
+      "region": [
+        0.25,
+        0.3
+      ],
+      "architecture": "Each unary request is keyed by SHA256(method + payload), checked against a 100 ms TTL cache and then an in-flight map. The first caller becomes the leader; followers subscribe to its result. Backend work runs on a detached context, errors propagate to followers, errors are not cached by default, and panic paths are recovered and broadcast. A persistent gRPC ClientConn reuses HTTP/2 streams instead of redialing. Client-streaming and bidirectional RPCs bypass collapsing; server-streaming remains a documented limitation without proto descriptors.",
       "design_decisions": [
-        "A sidecar rather than a client library — collapsing has to work for every caller in the mesh regardless of language. A Go library only ever helps the Go services.",
-        "A passthrough codec over decoding requests — forwarding raw frames means no proto descriptors, no code generation, no redeploy when a schema changes. The proxy is genuinely schema-agnostic.",
-        "Detached-context semantics for the leader's backend call — this is the explicit improvement over golang.org/x/sync/singleflight, where the leader cancelling takes down work that other callers are still waiting on. Here the backend call outlives whichever client happened to arrive first.",
-        "SHA256 over method + payload as the collapse key — identical requests hash identically without the proxy understanding a single field.",
-        "Errors are not cached by default — a transient blip should not be replayed to every caller for a full TTL window. Negative caching exists but is opt-in via COLLAPSER_CACHE_ERRORS.",
-        "One persistent ClientConn instead of per-request dialing — HTTP/2 multiplexing does the work, and TCP/TLS handshakes disappear from the hot path."
+        "A sidecar instead of a client library - collapsing works across callers regardless of implementation language.",
+        "Custom coordination instead of singleflight - adds TTL caching, per-call metrics and backend work that survives cancellation of the first caller.",
+        "SHA256(method + payload) as the collapse key - equivalent requests can be identified without understanding protobuf fields.",
+        "Errors are not cached by default - transient backend failures should not be amplified for the full cache window.",
+        "One persistent backend ClientConn - HTTP/2 multiplexing keeps TCP/TLS handshakes out of the request hot path."
       ],
       "tradeoffs": [
-        "Followers inherit the leader's failure — one backend error fails everyone attached. That's the correct read-through semantic, and retrying per-follower would recreate the exact herd the proxy exists to prevent.",
-        "A 100ms result TTL trades a small, bounded staleness window for the collapse ratio — long enough to absorb a burst, short enough that nobody is served genuinely old data.",
-        "Streaming RPCs are bypassed rather than half-supported — a stream has no single result to fan out, so client-streaming and bidirectional calls are detected and passed straight through.",
-        "Everything is configured by environment variable rather than a config file or control plane — a sidecar should be deployable without shipping a second artifact alongside it."
+        "Followers inherit the leader's failure - one backend error fails everyone attached. That's the correct read-through semantic, and retrying per-follower would recreate the exact herd the proxy exists to prevent.",
+        "A 100ms result TTL trades a small, bounded staleness window for the collapse ratio - long enough to absorb a burst, short enough that nobody is served genuinely old data.",
+        "Streaming RPCs are bypassed rather than half-supported - a stream has no single result to fan out, so client-streaming and bidirectional calls are detected and passed straight through.",
+        "Everything is configured by environment variable rather than a config file or control plane - a sidecar should be deployable without shipping a second artifact alongside it."
       ],
       "challenges": [
-        "Client cancellation killing shared work — the naive implementation runs the backend call on the leader's context, so when that client disconnected every follower died with it. Detaching the context fixed it, and it's the core reason this exists rather than a singleflight wrapper.",
-        "Server-streaming RPCs are indistinguishable from unary ones without a proto descriptor — a known, documented limitation: server-streaming calls currently return only the first response frame.",
-        "TLS to the backend uses the system trust store — custom CA bundles and mutual TLS aren't supported yet, which rules out some zero-trust meshes today."
+        "Client cancellation killing shared work - the naive implementation runs the backend call on the leader's context, so when that client disconnected every follower died with it. Detaching the context fixed it, and it's the core reason this exists rather than a singleflight wrapper.",
+        "Server-streaming RPCs are indistinguishable from unary ones without a proto descriptor - a known, documented limitation: server-streaming calls currently return only the first response frame.",
+        "TLS to the backend uses the system trust store - custom CA bundles and mutual TLS aren't supported yet, which rules out some zero-trust meshes today."
       ],
       "improvements": [
         "Optional proto descriptors so server-streaming RPCs can be detected and passed through correctly, closing the one real correctness gap.",
         "Mutual TLS and custom CA bundle support for backends that don't chain to the system trust store.",
-        "Per-method collapse policy — everything is global today, and non-idempotent methods deserve an explicit opt-out rather than relying on the TTL being short."
+        "Per-method collapse policy - everything is global today, and non-idempotent methods deserve an explicit opt-out rather than relying on the TTL being short."
       ],
-      "links": { "github": "https://github.com/VarunGitGood/collapser-grpc" },
+      "claims": [
+        {
+          "status": "benchmarked",
+          "text": "82 ns/op with zero allocations on the dedupe hot path. This is a Go microbenchmark of the in-process coordination path under synthetic high contention - it measures key hashing, cache lookup and in-flight map coordination only. It is NOT end-to-end RPC latency and contains no network, no serialization and no backend time."
+        },
+        {
+          "status": "benchmarked",
+          "text": "Up to 1000:1 collapse ratio under synthetic 10k+ concurrent identical requests. Synthetic load, not a production traffic measurement."
+        },
+        {
+          "status": "implemented",
+          "text": "Detached backend context, so a cancelled leader does not kill the shared call its followers are waiting on."
+        },
+        {
+          "status": "implemented",
+          "text": "Schema-agnostic collapsing keyed by SHA256(method + payload) - no protobuf descriptors required."
+        },
+        {
+          "status": "implemented",
+          "text": "Prometheus metrics for collapse ratio, cache hits, in-flight count and backend latency."
+        },
+        {
+          "status": "known limitation",
+          "text": "Server-streaming RPCs currently return only the first response frame; client-streaming and bidirectional calls bypass collapsing entirely. Backend TLS uses the system trust store only - no mTLS, no custom CA bundles."
+        },
+        {
+          "status": "planned",
+          "text": "Optional proto descriptors, mutual TLS, and per-method collapse policy. None of these are in the code today."
+        }
+      ],
+      "links": {
+        "github": "https://github.com/VarunGitGood/collapser-grpc"
+      },
       "meta": {
         "difficulty": "Advanced",
-        "domains": ["Distributed Systems", "Go", "gRPC", "Performance"],
+        "domains": [
+          "Distributed Systems",
+          "Go",
+          "gRPC",
+          "Performance"
+        ],
         "highlights": [
-          "~82 ns/op, zero allocations at 10k+ concurrency",
-          "up to 1000:1 collapse ratio",
-          "schema-agnostic passthrough codec",
+          "82 ns/op, zero-allocation dedupe hot path in a synthetic high-contention Go benchmark",
+          "up to 1000:1 collapse ratio in synthetic contention tests",
+          "schema-agnostic passthrough",
           "detached-context semantics vs singleflight",
-          "Prometheus metrics and structured logging built in"
+          "Prometheus metrics built in"
         ],
         "questions": [
+          "Is the 82 ns/op benchmark actually network latency?",
+          "Why did he write his own coordination instead of using singleflight?",
           "What is request collapsing and when does it help?",
-          "How is this different from singleflight?",
           "What can't it do?",
           "Why a sidecar instead of a client library?",
-          "How does it work without knowing the protobuf schema?"
+          "How does it work without knowing the protobuf schema?",
+          "Show me the detached-context code."
         ]
       }
     },
@@ -142,24 +234,31 @@
       "id": "fend",
       "title": "Fend",
       "blurb": "fleet-wide Linux hardening · Ansible + Electron",
-      "details": "A desktop tool for hardening Ubuntu fleets. Security modules are written as Ansible playbooks and pushed to grouped remote hosts over SSH, so an operator can apply a hardening standard across many machines from one GUI — with per-run logging and no agent installed on the targets.",
-      "stack": ["TypeScript", "Electron", "React", "Ansible"],
-      "region": [0.4, 0.75],
+      "details": "A desktop operator tool for applying repeatable Linux hardening across grouped Ubuntu hosts. Electron/React drives agentless Ansible playbooks over SSH, with key-based authentication and per-run audit logs. The project focuses on operationally legible, idempotent hardening rather than claiming full compliance with a security benchmark.",
+      "stack": [
+        "TypeScript",
+        "Electron",
+        "React",
+        "Ansible"
+      ],
+      "region": [
+        0.4,
+        0.75
+      ],
       "architecture": "An Electron application with a React and TypeScript renderer drives Ansible underneath. Hosts are organized into inventory groups so hardening can be applied per environment rather than per machine, and authentication to targets is key-based rather than interactive. Security modules ship as playbooks, custom scripts can be added alongside the built-in set, and every run is logged so an operator can see what was applied where.",
       "design_decisions": [
-        "Ansible as the execution layer over a custom agent — it is agentless and idempotent, so hardening can be re-applied safely and targets need nothing installed. Re-running a playbook converging to the same state is exactly the property a hardening tool needs.",
-        "Playbooks as the unit of a security module — operators can read, audit, and extend a module without touching application code, which matters when the thing being changed is a machine's security posture.",
-        "Host grouping over per-machine operation — hardening standards apply to environments, not individual boxes, and grouping is what makes the tool usable beyond a handful of hosts.",
-        "A desktop GUI over a web service — the tool holds SSH access to production hosts, so keeping it on the operator's machine avoids standing up a privileged always-on service.",
-        "Key-based authentication to clients rather than prompting for credentials on every run."
+        "Ansible as the execution layer - agentless and idempotent, so hardening can be safely re-applied.",
+        "Playbooks as the security-module boundary - operators can audit or extend hardening without changing application code.",
+        "A desktop operator model - SSH credentials stay on the operator machine instead of a privileged always-on service.",
+        "Grouped inventories - security changes apply to environments rather than one host at a time."
       ],
       "tradeoffs": [
-        "Ubuntu-focused rather than distro-agnostic — the playbooks encode Ubuntu-specific package and config paths, which keeps modules concrete at the cost of portability.",
-        "A desktop app means no central audit trail across operators — logs live per-run on the machine that ran them.",
+        "Ubuntu-focused rather than distro-agnostic - the playbooks encode Ubuntu-specific package and config paths, which keeps modules concrete at the cost of portability.",
+        "A desktop app means no central audit trail across operators - logs live per-run on the machine that ran them.",
         "Coverage is scoped to the implemented modules rather than a full CIS benchmark, so it reduces attack surface without claiming certification against a standard."
       ],
       "challenges": [
-        "Making remote execution legible in a GUI — an operator needs to know what a hardening run changed on which hosts, which drove per-run logging rather than fire-and-forget execution.",
+        "Making remote execution legible in a GUI - an operator needs to know what a hardening run changed on which hosts, which drove per-run logging rather than fire-and-forget execution.",
         "Bridging a desktop UI to an automation tool designed for the terminal, without hiding the playbooks that make the behavior auditable."
       ],
       "improvements": [
@@ -167,10 +266,31 @@
         "Map modules to recognized benchmarks (such as CIS) so a run can be reported against a standard.",
         "Dynamic inventory and in-app script editing, so hosts and modules can change without leaving the tool."
       ],
-      "links": { "github": "https://github.com/VarunGitGood/Fend" },
+      "claims": [
+        {
+          "status": "implemented",
+          "text": "Agentless, idempotent hardening: an Electron/React operator UI driving Ansible playbooks over key-based SSH against grouped Ubuntu inventories, with per-run logs."
+        },
+        {
+          "status": "known limitation",
+          "text": "Ubuntu-only playbook paths, no central cross-operator audit trail, and coverage scoped to the implemented modules - it is not certified against CIS or any other benchmark."
+        },
+        {
+          "status": "planned",
+          "text": "Benchmark mapping (CIS), dynamic inventory, in-app script editing, broader distro validation."
+        }
+      ],
+      "links": {
+        "github": "https://github.com/VarunGitGood/Fend"
+      },
       "meta": {
         "difficulty": "Intermediate",
-        "domains": ["Security", "Infrastructure", "Automation", "Desktop"],
+        "domains": [
+          "Security",
+          "Infrastructure",
+          "Automation",
+          "Desktop"
+        ],
         "highlights": [
           "agentless, idempotent hardening via Ansible",
           "grouped fleet management over SSH",
@@ -184,92 +304,54 @@
           "What are its limits today?"
         ]
       }
-    },
-    {
-      "id": "shrinkr",
-      "title": "Shrinkr",
-      "blurb": "URL shortener · Go/Fiber CLI + API",
-      "details": "A URL shortener with a Cobra command-line client and a Fiber backend. It supports expiring links, secret-code-protected URLs, and browser-based SSO login, with Redis in front of MongoDB so redirects resolve from cache rather than the database.",
-      "stack": ["Go", "Fiber", "Cobra", "Redis", "MongoDB"],
-      "region": [0.15, 0.65],
-      "architecture": "A Cobra CLI handles authentication and link management, talking to a Fiber HTTP backend. Redis fronts MongoDB: short codes resolve from cache on the read path, with MongoDB as the source of truth for link records, ownership, expiry, and protection. Login runs through browser-based Google SSO so credentials never pass through the terminal.",
-      "design_decisions": [
-        "Redis in front of MongoDB rather than a single store — redirection is a read-dominated, latency-sensitive path, and it deserves an in-memory lookup while durable link metadata stays in the database.",
-        "A CLI as the primary client — shortening a URL is a one-line action, and a terminal client fits the workflow better than a page load for a developer audience.",
-        "Browser-based SSO rather than terminal credential entry — the CLI hands off to the browser for Google auth, so passwords never touch the shell or its history.",
-        "Expiry and secret-code protection as first-class link properties rather than bolt-ons, so access control is enforced at resolution time."
-      ],
-      "tradeoffs": [
-        "Split client and server repositories — clean separation, but it means two deployables and two things to keep in version step.",
-        "Cache-fronted reads accept a small consistency window on link updates in exchange for redirect latency.",
-        "A CLI-first client narrows the audience to developers; there is no general web UI."
-      ],
-      "challenges": [
-        "Keeping authentication usable in a terminal tool without handling passwords directly, which is what pushed login into the browser SSO flow.",
-        "Designing the cache and database split so that expiry and protected-link rules are still enforced when a redirect is served from cache rather than the database."
-      ],
-      "improvements": [
-        "Analytics per link (hit counts, referrers) — the obvious next feature for a shortener and a natural fit for the existing Redis layer.",
-        "Custom aliases and rate limiting on resolution.",
-        "Consolidate the CLI and API repositories, and add end-to-end tests across the two."
-      ],
-      "links": { "github": "https://github.com/VarunGitGood/Shrinkr" },
-      "meta": {
-        "difficulty": "Intermediate",
-        "domains": ["Backend", "Go", "CLI"],
-        "highlights": [
-          "Redis-cached redirect path over MongoDB",
-          "Cobra CLI with browser SSO handoff",
-          "expiring and secret-protected links"
-        ],
-        "questions": [
-          "Why Redis and MongoDB together?",
-          "How does SSO work from a command-line tool?",
-          "What would you change if it had to scale?"
-        ]
-      }
     }
   ],
   "skills": [
     {
-      "group": "AI / LLM",
+      "group": "Languages",
       "items": [
-        ["RAG Pipelines", 90],
-        ["Hybrid Search & Reranking", 88],
-        ["pgvector · FAISS", 88],
-        ["Retrieval Evaluation (RAGAS)", 84],
-        ["Agent Orchestration", 84],
-        ["LLM Serving Concepts", 72]
+        "Go",
+        "Python",
+        "TypeScript",
+        "C++",
+        "SQL"
       ]
     },
     {
-      "group": "Languages",
+      "group": "AI / LLM",
       "items": [
-        ["Go", 88],
-        ["Python", 88],
-        ["TypeScript", 86],
-        ["SQL", 84],
-        ["C++", 72]
+        "Agent Orchestration",
+        "RAG",
+        "Hybrid Search (BM25 + Vector)",
+        "Reciprocal Rank Fusion",
+        "pgvector / HNSW",
+        "Retrieval Evaluation"
       ]
     },
     {
       "group": "Backend & Systems",
       "items": [
-        ["PostgreSQL", 88],
-        ["FastAPI", 86],
-        ["Redis", 84],
-        ["NestJS", 84],
-        ["gRPC", 82]
+        "FastAPI",
+        "Fastify",
+        "NestJS",
+        "PostgreSQL",
+        "Redis",
+        "gRPC",
+        "RabbitMQ",
+        "Bull",
+        "Prometheus"
       ]
     },
     {
       "group": "Infrastructure",
       "items": [
-        ["Docker", 88],
-        ["Kubernetes", 84],
-        ["CI/CD Pipelines", 84],
-        ["S3 · Object Storage", 80],
-        ["RabbitMQ", 78]
+        "Docker",
+        "Kubernetes",
+        "GitLab CI/CD",
+        "Artifactory",
+        "S3",
+        "Cloudflare Workers",
+        "Helm"
       ]
     }
   ],
@@ -277,22 +359,55 @@
     {
       "role": "Associate Software Developer (SDE-1)",
       "org": "Oracle",
-      "period": "Jul 2025—now",
-      "summary": "Co-built an LLM-driven test configuration generator over 150+ versioned specification documents with a FAISS retrieval layer — 50% less manual authoring across 6+ teams. Also rebuilt the logging pipeline on artifact-backed storage (35% lower stale-artifact cost) and pushed first-pass Kubernetes deployment success from 60% to 95%."
+      "period": "Jul 2025-now",
+      "location": "Hybrid",
+      "confidential": true,
+      "summary": "Architected Composer, an AI workflow platform that turns 5G requirements into structured test plans and automation-ready bundles - reducing manual authoring effort by 50% across 6+ network-function teams. Re-engineered Prometheus telemetry collection, cutting end-to-end data retrieval from 8 hours to 1.5. Led a backward-compatible migration from an overloaded log server to Artifactory.",
+      "points": [
+        "Composer: intent-driven selection over 65k+ domain-organized JSON examples, versioned generation skills, deterministic validation, resumable finite-state workflows, immutable artifacts and approval gates - 50% less manual authoring across 6+ network-function teams.",
+        "Prometheus telemetry: packed PromQL requests, reusable HTTP sessions, retry handling and bounded dual-worker concurrency cut end-to-end retrieval from 8 hours to 1.5; a 23.9k-request benchmark measured 75.9% lower runtime and 99.4% fewer connection establishments.",
+        "Artifactory migration: backward-compatible move off an overloaded log server, with reusable upload abstractions and direct bastion-to-Artifactory transfers for Robot, network-function and OSO artifacts while preserving downstream paths; centralized Paramiko, JumpSSH and SFTP lifecycle cleanup to eliminate recurring SSH and file-descriptor leaks."
+      ]
     },
     {
       "role": "Project Intern",
       "org": "Oracle",
-      "period": "Jan—Jun 2025",
-      "summary": "Built performance-run reporting utilities that turned raw worker-node utilization metrics into standardized KPI tables, making resource bottlenecks visible. Refactored the test scheduling dashboard's state management — cut UI support tickets 80% for 75+ engineers."
+      "period": "Jan-Jun 2025",
+      "location": "Hybrid",
+      "confidential": true,
+      "summary": "Developed worker-utilization reporting for performance runs and refactored dashboard state management, cutting UI-related support tickets by 80% for 75+ engineers.",
+      "points": [
+        "Worker-utilization reporting for performance runs, surfacing resource bottlenecks.",
+        "Refactored test-scheduling dashboard state management - 80% fewer UI-related support tickets for 75+ engineers."
+      ]
     },
     {
       "role": "Consulting Backend Engineer",
       "org": "Trijog",
-      "period": "Feb—Apr 2024",
-      "summary": "Architected a modular NestJS LMS backend with role-based access control and an async media pipeline (Bull + FFmpeg) transcoding uploads to adaptive-bitrate HLS — upload-to-stream went from 30 minutes to 5. Secured delivery with a Cloudflare Worker CDN proxy authorizing every HLS segment."
+      "period": "Feb-Apr 2024",
+      "location": "Remote",
+      "summary": "Owned end-to-end backend delivery for an LMS with 20k+ registered and 250+ peak concurrent users. Built the 7-module NestJS backend from scratch and engineered a Bull + FFmpeg pipeline that cut video readiness from 30 minutes to 5.",
+      "points": [
+        "Built the 7-module NestJS backend from scratch with 3-role RBAC, Metabase reporting, async jobs and private DigitalOcean Spaces - 20k+ registered, 250+ peak concurrent users.",
+        "Bull + FFmpeg processing for 400+ videos with multipart uploads and 5 HLS renditions, cutting readiness from 30 minutes to 5; a Cloudflare Worker enforced signed, expiring auth on every manifest and segment."
+      ]
     }
   ],
+  "achievements": [
+    {
+      "title": "Winner, Smart India Hackathon 2023",
+      "detail": "Selected among 50,000+ submissions nationwide."
+    },
+    {
+      "title": "Code for GovTech (C4GT)",
+      "detail": "Implemented a RabbitMQ + NestJS batch-processing system for digital public infrastructure, cutting document processing time by 30%."
+    }
+  ],
+  "education": {
+    "school": "Indian Institute of Information Technology, Jabalpur",
+    "degree": "B.Tech, Computer Science and Engineering",
+    "period": "Dec 2021-May 2025"
+  },
   "blogs": [],
   "contact": {
     "email": "varun7singh10@gmail.com",

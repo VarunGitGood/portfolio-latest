@@ -1,6 +1,6 @@
 /**
  * Tiny pub/sub. UI emits reaction events; the background engine subscribes and
- * drives node waves. Kept intentionally minimal — no deps.
+ * drives node waves. Kept intentionally minimal - no deps.
  */
 type Handler = (payload?: unknown) => void;
 

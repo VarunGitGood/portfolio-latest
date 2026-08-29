@@ -50,7 +50,7 @@ export function undockFrame(): void {
   docked = false;
   frame().classList.remove("docked");
   document.getElementById("hero")!.removeAttribute("title");
-  bus.emit("section", null); // back on the landing — no tab is current
+  bus.emit("section", null); // back on the landing - no tab is current
 }
 
 /** Hero click / esc return to the landing view; stream history is kept. */
@@ -64,9 +64,9 @@ export function initStream(): void {
 function bodyFor(sec: Section): string {
   switch (sec) {
     case "about":
-      return `<p>${content.about.bio}</p><div class="facts">${content.about.facts
-        .map((f) => `<span>${f}</span>`)
-        .join("")}</div>`;
+      return `<p>${content.about.bio}</p>
+        <ul class="proof">${content.about.proof.map((p) => `<li>${p}</li>`).join("")}</ul>
+        <div class="facts">${content.about.facts.map((f) => `<span>${f}</span>`).join("")}</div>`;
     case "projects":
       return content.projects
         .map(
@@ -77,20 +77,28 @@ function bodyFor(sec: Section): string {
         )
         .join("");
     case "skills":
+      // no proficiency bars: "Go 88%" has no definition anyone can check
       return content.skills
         .map(
           (g) => `<div class="skgroup"><h4>${g.group}</h4><div class="chips">${g.items
-            .map(([n, l]) => `<span class="chip">${n}<span class="lv" style="--l:${l}%"></span></span>`)
+            .map((n) => `<span class="chip">${n}</span>`)
             .join("")}</div></div>`,
         )
         .join("");
-    case "experience":
-      return `<div class="journey">${content.experience
+    case "experience": {
+      const journey = `<div class="journey">${content.experience
         .map(
           (e) =>
-            `<div class="exp"><span class="per">${e.period}</span><b>${e.role}</b> · <span class="org">${e.org}</span><p>${e.summary}</p></div>`,
+            `<div class="exp"><span class="per">${e.period}</span><b>${e.role}</b> · <span class="org">${e.org}</span>
+            <p>${e.summary}</p><ul class="pts">${e.points.map((p) => `<li>${p}</li>`).join("")}</ul></div>`,
         )
         .join("")}</div>`;
+      const extras = `<div class="skgroup"><h4>Achievements</h4><ul class="proof">${content.achievements
+        .map((a) => `<li><b>${a.title}</b> - ${a.detail}</li>`)
+        .join("")}</ul></div>
+        <div class="skgroup"><h4>Education</h4><p>${content.education.school} - ${content.education.degree}, ${content.education.period}</p></div>`;
+      return journey + extras;
+    }
     case "contact":
       return `<div class="ping"></div>
         <div class="contact-links">
@@ -113,14 +121,14 @@ function typeTag(el: Element, text: string, done: () => void): void {
   })();
 }
 
-/** `focusId` expands that project row once the section renders — the assistant
+/** `focusId` expands that project row once the section renders - the assistant
  *  uses it to point at a specific project while it answers. */
 export function openSection(sec: Section, focusId?: string): void {
   dockFrame();
   bus.emit("section", sec);
   const s = streamEl();
 
-  // re-clicking the section that's already last just pulses it — no dupes
+  // re-clicking the section that's already last just pulses it - no dupes
   const last = s.lastElementChild as HTMLElement | null;
   if (last?.dataset.sec === sec) {
     if (!reduce) animate(last, { scale: [1, 1.015, 1], duration: 320, ease: "inOutQuad" });
@@ -198,10 +206,10 @@ function runPing(entry: HTMLElement): void {
   if (!out) return;
   const lines: [string, number][] = [
     [`<span class="cmd">$ ping ${content.name.split(" ")[0].toLowerCase()}</span>`, 150],
-    ['<span class="ok">reachable</span> — opening channel…', 450],
+    ['<span class="ok">reachable</span> - opening channel…', 450],
   ];
   out.innerHTML = "";
-  // entry keeps growing after the initial scroll — follow it down as lines land
+  // entry keeps growing after the initial scroll - follow it down as lines land
   lines.forEach(([t, d]) =>
     setTimeout(() => {
       out.innerHTML += t + "<br>";

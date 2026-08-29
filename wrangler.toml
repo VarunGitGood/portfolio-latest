@@ -2,11 +2,11 @@ name = "portfolio-latest"
 compatibility_date = "2024-09-23"
 pages_build_output_dir = "dist"
 
-# Secrets (do NOT put keys here — set them, don't commit them):
+# Secrets (do NOT put keys here - set them, don't commit them):
 #   local dev  -> create .dev.vars   (see .dev.vars.example)
 #   production -> `npx wrangler pages secret put OPENROUTER_API_KEY`
 #                 `npx wrangler pages secret put GITHUB_TOKEN`   (optional)
-# Optional model override — must be tool-calling capable, /ask binds tools:
+# Optional model override - must be tool-calling capable, /ask binds tools:
 #   [vars]
 #   MODEL = "mistralai/mistral-small-3.2-24b-instruct"
 

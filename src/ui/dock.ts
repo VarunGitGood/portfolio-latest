@@ -43,7 +43,7 @@ export function initDock(): void {
     };
   });
 
-  // the stream owns which section is current — undocking clears it
+  // the stream owns which section is current - undocking clears it
   bus.on("section", (sec) => {
     pills.forEach((p) => {
       const on = p.dataset.sec === sec;

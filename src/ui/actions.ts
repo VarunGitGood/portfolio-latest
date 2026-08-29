@@ -2,7 +2,7 @@ import { content } from "../data";
 import { openSection, type Section } from "./stream";
 
 // The assistant's side of the page: everything it can actually do to the UI.
-// Unknown names are ignored on purpose — the worker may learn new tools before
+// Unknown names are ignored on purpose - the worker may learn new tools before
 // a cached client does.
 
 export function runAction(name: string, args: Record<string, string>): void {

@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* Design tokens — pastel, clean, dark. */
+/* Design tokens - pastel, clean, dark. */
 @theme {
   --color-bg-0: #050507;
   --color-bg-1: #0a0a14;
@@ -87,15 +87,18 @@ body::after {
 
 /* ---- landing vertical allocation (H = frame height, 81vh), top to bottom ----
    whole cluster (hero → bar → chips → tabs) optically centered on 50%H
-   hero center 38%H — typical bottom (1-line name) ≈ 38%H + 69
-   bar center 54%H (bottom: 46% + translateY(50%)); its bottom edge = 46%H − --bar-half
+   hero center 35%H; the hero is a name plus a three-line identity stack, so its
+   half-height is ~97px at the base type size and its bottom edge is 35%H + 97
+   bar center 54%H (bottom: 46% + translateY(50%)); its top edge = 54%H − --bar-half
+   The hero must clear that top edge: half + --bar-half < 0.19 × H. Every height
+   tier below exists to keep that true as H shrinks.
    chips: 14px below the bar, then tabs 14px below the chips.
    The two variable rows (chips, tabs) report their own height into --sugg-h /
-   --pill-h from dock.ts measureCluster() — the fallbacks below are only what the
+   --pill-h from dock.ts measureCluster() - the fallbacks below are only what the
    first paint uses. Nothing here assumes a font metric. */
 .hero {
-  position: absolute; left: 50%; top: 38%; transform: translate(-50%, -50%);
-  width: min(640px, 86%); text-align: center; display: flex; flex-direction: column; align-items: center; gap: 30px;
+  position: absolute; left: 50%; top: 35%; transform: translate(-50%, -50%);
+  width: min(640px, 86%); text-align: center; display: flex; flex-direction: column; align-items: center; gap: 22px;
   transition:
     left 0.6s cubic-bezier(0.16, 1, 0.3, 1), top 0.6s cubic-bezier(0.16, 1, 0.3, 1),
     transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), gap 0.6s cubic-bezier(0.16, 1, 0.3, 1);
@@ -106,7 +109,7 @@ body::after {
   cursor: pointer;
 }
 .frame.docked .hero:hover h1 { filter: brightness(1.3); }
-.frame.docked .tagline { opacity: 0; position: absolute; pointer-events: none; transition: opacity 0.15s ease; }
+.frame.docked .ident { opacity: 0; position: absolute; pointer-events: none; transition: opacity 0.15s ease; }
 /* back affordance: the docked name is clickable, so say so */
 .hero .back { display: none; }
 .frame.docked .hero .back {
@@ -128,23 +131,36 @@ h1 {
   transition: font-size 0.55s cubic-bezier(0.16, 1, 0.3, 1), filter 0.25s ease;
 }
 .frame.docked h1 { font-size: 21px; letter-spacing: -0.01em; }
-/* per-letter spans (boot materialize) — gradient per span, same vertical ramp */
+/* per-letter spans (boot materialize) - gradient per span, same vertical ramp */
 h1 .ch {
   display: inline-block; opacity: 0;
   background: linear-gradient(180deg, #f4f5f8, #cfd2da); -webkit-background-clip: text; background-clip: text; color: transparent;
 }
 @keyframes blink { 50% { opacity: 0; } }
-/* One line, always: the box is pinned by hero.ts to the widest tagline so the
-   left edge never moves between cycles, and the type shrinks rather than wraps. */
-.tagline {
-  font-family: var(--font-mono); font-size: clamp(12px, 2.5vw, 17px); color: var(--accent-light);
-  min-height: 1.2em; max-width: 100%; text-align: left; white-space: nowrap;
-  opacity: 1; transition: opacity 0.4s ease 0.35s;
+/* Identity stack under the name: what he is, where/with what, what he works on.
+   Static - no typing, no rotation. A recruiter reads all three in one glance,
+   and the text is prerendered into index.html rather than painted in by JS. */
+.ident { display: flex; flex-direction: column; align-items: center; gap: 9px; max-width: 100%; }
+.ident p { opacity: 0; } /* revealed by the boot timeline */
+.ident-role {
+  font-family: var(--font-body); font-weight: 500; font-size: clamp(15px, 2.4vw, 19px);
+  color: var(--text); letter-spacing: -0.01em;
+}
+.ident-cred { font-family: var(--font-mono); font-size: clamp(11px, 1.8vw, 13.5px); color: var(--muted); }
+.ident-focus {
+  font-family: var(--font-mono); font-size: clamp(10.5px, 1.7vw, 12.5px); color: var(--accent-light);
+  letter-spacing: 0.04em; padding-top: 12px; position: relative;
+}
+/* short hairline separating the positioning from the focus line */
+.ident-focus::before {
+  content: ""; position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+  width: 48px; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(124, 196, 196, 0.5), transparent);
 }
 
 /* ---- the stream: one scroll surface for sections + chat ---- */
 .stream {
-  position: absolute; left: 50%; transform: translateX(-50%); top: 72px; bottom: 148px; width: min(720px, 86%);
+  position: absolute; left: 50%; transform: translateX(-50%); top: 72px; bottom: 148px; width: min(792px, 86%);
   overflow-y: auto; display: flex; flex-direction: column; gap: 26px; padding: 26px 6px;
   opacity: 0; pointer-events: none; transition: opacity 0.5s ease 0.15s;
   /* text melts into the glass at both ends instead of clipping */
@@ -173,23 +189,71 @@ h1 .ch {
   background: rgba(124, 196, 196, 0.1); border: 1px solid rgba(124, 196, 196, 0.22);
   padding: 10px 14px; border-radius: 13px 13px 4px 13px;
 }
-/* what the assistant actually did before answering — real work, not fake tokens */
-.msg-trace { display: flex; flex-direction: column; gap: 4px; }
+/* the investigation thread - one node per real fetch, strung on a rail.
+   Nothing here is theatre: each node resolves when its request lands. */
+.msg-trace { position: relative; display: flex; flex-direction: column; gap: 5px; margin: 2px 0 4px; }
 .msg-trace:empty { display: none; }
-.tl { font-family: var(--font-mono); font-size: 11px; color: var(--accent-deep); letter-spacing: 0.02em; }
-.msg-trace.done .tl { color: var(--faint); }
-.msg-a { color: var(--text); line-height: 1.72; font-size: 16px; white-space: pre-wrap; max-width: 100%; }
+/* the rail, threaded through the dots */
+.msg-trace::before {
+  content: ""; position: absolute; left: 2px; top: 9px; bottom: 7px; width: 1px;
+  background: linear-gradient(180deg, rgba(124, 196, 196, 0.35), rgba(124, 196, 196, 0.08));
+}
+.tl {
+  display: flex; align-items: flex-start; gap: 9px;
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.02em; color: var(--muted);
+}
+.tl-dot {
+  flex: 0 0 5px; width: 5px; height: 5px; border-radius: 50%; margin-top: 5px;
+  background: var(--faint); box-shadow: 0 0 0 3px var(--bg-0);
+  transition: background 0.25s ease;
+}
+.tl-meta { color: var(--faint); font-size: 10px; }
+/* the group header sits above the first node, indented to the label column */
+.tl-head { padding-left: 14px; color: var(--accent-light); font-size: 11.5px; }
+/* in flight */
+.tl-run .tl-label { color: var(--accent-light); }
+.tl-run .tl-dot { background: var(--accent); animation: tlPulse 1s ease-in-out infinite; }
+@keyframes tlPulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+/* resolved */
+.tl-ok .tl-dot { background: var(--accent-deep); }
+.tl-fail .tl-dot { background: #9a5b5b; }
+.tl-fail .tl-label { color: var(--faint); }
+/* once the answer starts landing, the whole thread recedes */
+.msg-trace.done { opacity: 0.55; }
+.msg-trace.done .tl-label { color: var(--faint); }
+.msg-a { color: var(--muted); line-height: 1.72; font-size: 16px; white-space: pre-wrap; max-width: 100%; }
 .msg-a b { font-weight: 600; color: var(--accent-light); }
 .msg-a code { font-family: var(--font-mono); font-size: 0.88em; color: var(--accent-light); background: rgba(124, 196, 196, 0.1); border-radius: 4px; padding: 1px 5px; }
 .msg-a .blinkc { color: var(--accent-light); animation: blink 1.05s steps(1) infinite; }
+/* quoted source: the assistant reads real files now, so code has to look like code */
+.msg-a .msg-pre {
+  margin: 11px 0; padding: 12px 14px; border-radius: 10px; overflow-x: auto; white-space: pre;
+  background: rgba(0, 0, 0, 0.32); border: 1px solid var(--border);
+  font-family: var(--font-mono); font-size: 12.5px; line-height: 1.6; color: var(--text);
+}
+.msg-a .msg-pre code { background: none; border: 0; padding: 0; color: inherit; font-size: inherit; }
 .msg-err { color: var(--faint); font-family: var(--font-mono); font-size: 12.5px; }
-/* "sources consulted" footer under an answer — grounding, visibly */
+/* "sources consulted" footer under an answer - grounding, visibly */
 .msg-src { display: block; margin-top: 10px; font-family: var(--font-mono); font-size: 11px; color: var(--faint); letter-spacing: 0.02em; }
 .msg-err a { color: var(--accent-light); }
+/* evidence row: every artifact the answer was allowed to read, as links the
+   visitor can open. The model writes "sources:"; this row is the fetch log. */
+.msg-ev { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-top: 11px; }
+.msg-ev-h {
+  font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em;
+  color: var(--faint);
+}
+.msg-ev a {
+  font-family: var(--font-mono); font-size: 11px; color: var(--muted); text-decoration: none;
+  background: rgba(124, 196, 196, 0.07); border: 1px solid rgba(124, 196, 196, 0.2);
+  border-radius: 6px; padding: 3px 8px;
+  transition: color 0.2s, border-color 0.2s, background 0.2s;
+}
+.msg-ev a:hover { color: var(--accent-light); border-color: rgba(124, 196, 196, 0.45); background: rgba(124, 196, 196, 0.14); }
 
 /* ---- ask bar (centered on landing, docks to bottom when chatting) ---- */
 .askbar {
-  position: absolute; left: 50%; bottom: 46%; transform: translate(-50%, 50%); width: min(570px, 80%); z-index: 7;
+  position: absolute; left: 50%; bottom: 46%; transform: translate(-50%, 50%); width: min(627px, 80%); z-index: 7;
   display: flex; align-items: center; gap: 12px; padding: 15px 18px; border-radius: 14px;
   background: var(--glass); border: 1px solid var(--border);
   box-shadow: 0 10px 30px -14px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.015) inset;
@@ -211,7 +275,7 @@ h1 .ch {
 .askbar input:disabled { opacity: 0.5; }
 .askbar .kbd { font-family: var(--font-mono); font-size: 11px; color: var(--muted); border: 1px solid var(--border); border-radius: 6px; padding: 3px 8px; white-space: nowrap; }
 
-/* suggested questions — one row right under the askbar; its measured height
+/* suggested questions - one row right under the askbar; its measured height
    feeds --sugg-h, which is what pushes the tabs down. Chips must never wrap:
    a two-line row used to grow straight into the tabs. */
 .sugg {
@@ -226,7 +290,7 @@ h1 .ch {
   font-family: var(--font-body); font-size: 13px; color: var(--muted); cursor: pointer; user-select: none;
   background: rgba(20, 22, 30, 0.6); border: 1px solid var(--border); border-radius: 999px; padding: 8px 14px;
   white-space: nowrap; flex-shrink: 0;
-  /* transform/opacity excluded — anime.js drives those at boot */
+  /* transform/opacity excluded - anime.js drives those at boot */
   transition: color 0.2s, border-color 0.2s, background 0.2s;
 }
 .sq:hover { color: var(--text); border-color: rgba(124, 196, 196, 0.35); background: rgba(28, 32, 42, 0.85); }
@@ -237,7 +301,7 @@ h1 .ch {
   font-family: var(--font-mono); font-size: 10px; color: var(--faint); letter-spacing: 0.04em;
   opacity: 0; /* revealed by the boot timeline */
 }
-/* docked tabs land on top of it — fade it out rather than let them collide */
+/* docked tabs land on top of it - fade it out rather than let them collide */
 .frame.docked .credit { animation: creditOut 0.3s ease forwards; }
 @keyframes creditOut { to { opacity: 0; } }
 
@@ -273,7 +337,7 @@ h1 .ch {
 .proj.open .chev { transform: rotate(90deg); color: var(--accent); }
 .proj .pdetail { flex-basis: 100%; display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.35s cubic-bezier(0.16, 1, 0.3, 1); }
 .proj .pdetail > div { overflow: hidden; }
-.proj .pdetail p { font-size: 14.5px; color: var(--muted); line-height: 1.6; margin: 0; padding-left: 52px; } /* pico 38 + gap 14 — lines up with the title */
+.proj .pdetail p { font-size: 14.5px; color: var(--muted); line-height: 1.6; margin: 0; padding-left: 52px; } /* pico 38 + gap 14 - lines up with the title */
 .proj.open .pdetail > div > p { padding-bottom: 4px; }
 .proj.open .pdetail { grid-template-rows: 1fr; }
 .proj .pico { width: 38px; height: 38px; border-radius: 9px; display: grid; place-items: center; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border); font-family: var(--font-mono); color: var(--accent-light); }
@@ -300,16 +364,16 @@ h1 .ch {
 .exp .org { color: var(--accent-light); font-family: var(--font-mono); font-size: 14px; }
 .exp .per { color: var(--faint); font-family: var(--font-mono); font-size: 12px; float: right; }
 .exp p { margin-top: 6px; font-size: 15px; }
+/* evidence bullets - About's results row and each role's points */
+/* Tailwind preflight clears list-style, and these lists want their markers */
+.proof, .pts { margin-top: 10px; padding-left: 18px; list-style: disc; }
+.proof li, .pts li { color: var(--muted); font-size: 14.5px; line-height: 1.7; margin-top: 6px; max-width: 62ch; }
+.proof li::marker, .pts li::marker { color: var(--accent-deep); }
+.proof li b { color: var(--text); font-weight: 600; }
 .skgroup { margin-top: 20px; }
 .skgroup h4 { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); margin-bottom: 10px; }
 .chips { display: flex; flex-wrap: wrap; gap: 9px; }
-.chip { font-family: var(--font-mono); font-size: 13.5px; color: var(--text); background: rgba(255, 255, 255, 0.035); border: 1px solid var(--border); border-radius: 9px; padding: 8px 12px; display: flex; align-items: center; gap: 8px; }
-.chip .lv { width: 34px; height: 3px; border-radius: 2px; background: rgba(255, 255, 255, 0.1); position: relative; overflow: hidden; }
-.chip .lv::after {
-  content: ""; position: absolute; inset: 0; width: 0; background: linear-gradient(90deg, var(--accent-deep), var(--accent-light)); border-radius: 2px;
-  animation: lvfill 1.8s cubic-bezier(0.16, 1, 0.3, 1) 0.4s both; /* bars fill when the chips appear */
-}
-@keyframes lvfill { to { width: var(--l, 70%); } }
+.chip { font-family: var(--font-mono); font-size: 13.5px; color: var(--text); background: rgba(255, 255, 255, 0.035); border: 1px solid var(--border); border-radius: 9px; padding: 8px 12px; }
 .ping { font-family: var(--font-mono); font-size: 14.5px; line-height: 1.9; margin-top: 6px; color: var(--muted); }
 .ping .ok { color: var(--accent-light); }
 .ping .cmd { color: var(--text); }
@@ -348,21 +412,105 @@ h1 .ch {
   * { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition: none !important; }
 }
 
-/* height tiers: shrink the hero before the tagline→bar gap (16%H − 96px) can close */
+/* ---- the static document underneath --------------------------------------
+   The same portfolio content as the interactive UI, prerendered into
+   index.html from content.json by prerender.ts. Clipped for sighted visitors
+   running JS but left in the accessibility tree, and the entire page when JS
+   is off - so the canvas is an enhancement, not the only door in. */
+.sr-only,
+#static {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
+}
+html.no-js, html.no-js body { overflow: auto; height: auto; }
+html.no-js #bg, html.no-js #preload, html.no-js #stage { display: none; }
+html.no-js #static {
+  position: static; width: auto; height: auto; max-width: 760px;
+  margin: 0 auto; padding: 56px 24px 80px;
+  overflow: visible; clip-path: none; white-space: normal;
+}
+html.no-js #static h1 { font-family: var(--font-display); font-size: 44px; letter-spacing: -0.03em; color: var(--text); background: none; -webkit-text-fill-color: currentColor; }
+html.no-js #static h2 {
+  font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.14em;
+  color: var(--accent-light); margin: 46px 0 4px;
+}
+html.no-js #static h3 { font-size: 17px; margin-top: 24px; color: var(--text); }
+html.no-js #static p { color: var(--muted); line-height: 1.7; margin-top: 8px; max-width: 68ch; }
+html.no-js #static .s-role { color: var(--text); font-size: 20px; margin-top: 12px; }
+html.no-js #static .s-cred, html.no-js #static .s-when { font-family: var(--font-mono); font-size: 13px; color: var(--faint); }
+html.no-js #static ul { margin: 10px 0 0 20px; list-style: disc; }
+html.no-js #static li { color: var(--muted); line-height: 1.7; margin-top: 6px; max-width: 66ch; }
+html.no-js #static li::marker { color: var(--accent-deep); }
+html.no-js #static b { color: var(--text); }
+html.no-js #static a { color: var(--accent-light); }
+
+/* height tiers: the hero is now three lines taller than it was, so it has to
+   shed height before its bottom edge reaches the askbar (top edge 54%H − half) */
 @media (max-height: 820px) {
-  .hero { top: 37%; gap: 22px; }
+  .hero { top: 34%; gap: 20px; }
   h1 { font-size: clamp(40px, 6.5vw, 64px); }
+}
+@media (max-height: 700px) {
+  .hero { top: 33%; gap: 16px; }
+  h1 { font-size: clamp(34px, 5.5vw, 52px); }
+  .ident { gap: 7px; }
+  .ident-focus { display: none; } /* positioning survives, flavour goes */
 }
 @media (max-height: 680px) {
   /* onboarding sugar loses to legibility on tiny screens; --sugg-h measures 0
      from here, so the tabs close the gap on their own */
   .sugg { display: none; }
 }
+@media (max-height: 560px) {
+  .hero { top: 31%; gap: 12px; }
+  h1 { font-size: clamp(28px, 5vw, 40px); }
+  .ident-cred { display: none; } /* the role line is the one that has to stay */
+}
 
+/* ---- phone ----
+   The frame stops being a card and becomes the viewport. Two things drive the
+   rest: 100dvh, so the mobile URL bar can't push the dock off-screen, and the
+   five tabs wrapping to two rows, which every bottom-anchored offset below
+   reads back out of the measured --pill-h instead of a desktop constant. */
 @media (max-width: 640px) {
-  .frame { width: 100vw; height: 100vh; border-radius: 0; }
-  .stream { width: 90%; }
-  .askbar { width: 90%; }
+  .frame {
+    width: 100vw; height: 100vh; height: 100dvh; border-radius: 0;
+    /* a full-screen backdrop-filter sampling a canvas that repaints every frame
+       is the most expensive thing on the page - phones get a cheaper blur */
+    backdrop-filter: blur(9px) saturate(112%); -webkit-backdrop-filter: blur(9px) saturate(112%);
+  }
+  .stream {
+    width: 92%; padding: 26px 2px;
+    bottom: calc(106px + var(--pill-h, 38px)); /* askbar bottom + its height + gap */
+    overscroll-behavior: contain; /* don't hand the rubber-band back to the page */
+  }
+  .askbar { width: 92%; padding: 13px 15px; }
+  .frame.docked .askbar { bottom: calc(36px + var(--pill-h, 38px)); } /* dock bottom + gap */
+  .askbar input { font-size: 16px; } /* below 16px iOS zooms the whole page on focus */
+  .askbar .kbd { font-size: 10px; padding: 3px 6px; }
+  /* chips are the only thing telling a phone visitor what to ask, so they wrap
+     here rather than hide; measureCluster reports the taller row into --sugg-h */
+  .sugg { flex-wrap: wrap; max-width: 94vw; }
+  .sq { font-size: 12.5px; padding: 7px 12px; }
+  .dock { gap: 8px; max-width: 94%; }
+  .pill {
+    font-size: 13px; padding: 9px 14px;
+    /* five of these over the frame's own blur; opaque background instead */
+    backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(20, 22, 30, 0.9);
+  }
   .frame.docked .hero { left: 16px; top: 14px; }
+  .frame.docked .hero .esc-hint { display: none; } /* no esc key on a phone */
   .credit { display: none; }
+  .msg-q { max-width: 92%; }
+  .proj .pdetail p { padding-left: 0; } /* the 52px title indent is half a phone */
+  .exp .per { float: none; display: block; margin-top: 3px; } /* stops overlapping the role */
+  .contact-links { flex-wrap: wrap; }
+  .toast { bottom: calc(96px + var(--pill-h, 38px)); }
+}
+
+/* touch: there is no pointer to leave, so a lift state sticks after the tap */
+@media (hover: none) {
+  * { -webkit-tap-highlight-color: transparent; }
+  .pill:hover { transform: none; }
+  .proj:hover { background: none; border-color: transparent; }
 }

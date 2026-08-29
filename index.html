@@ -1,29 +1,42 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="no-js">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Varun Singh — Living Infrastructure</title>
-    <meta name="description" content="Varun Singh — backend & infrastructure engineer. A portfolio that runs like a living distributed system." />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
+    <!-- title, description, OG/Twitter and the JSON-LD Person are written in by
+         prerender.ts from content.json - one source of truth, no drift -->
+    <!--@meta-->
+    <script>
+      // before first paint: JS is on, so the canvas experience takes over and the
+      // static document below it goes back to being a screen-reader/crawler layer
+      document.documentElement.classList.replace("no-js", "js");
+    </script>
   </head>
   <body>
-    <canvas id="bg"></canvas>
+    <canvas id="bg" aria-hidden="true"></canvas>
 
-    <div class="preload" id="preload"><i></i><i></i><i></i></div>
+    <div class="preload" id="preload" aria-hidden="true"><i></i><i></i><i></i></div>
+
+    <!-- the whole portfolio as plain semantic HTML, prerendered from content.json.
+         Clipped for sighted JS visitors, read normally by assistive tech, and the
+         entire page when JS is off. -->
+    <!--@static-->
 
     <div id="stage">
       <div class="frame" id="frame">
         <div class="hero" id="hero">
           <span class="back" aria-hidden="true">‹</span>
-          <h1><span id="name"></span></h1>
-          <span class="esc-hint">esc</span>
-          <div class="tagline" id="tag"></div>
+          <!--@hero-->
         </div>
 
-        <div class="stream" id="stream"></div>
+        <div class="stream" id="stream" role="region" aria-label="Portfolio content and answers"></div>
+        <!-- answers are announced once, when they finish. A live region on the
+             stream itself would re-announce on every streamed token. -->
+        <div class="sr-only" id="say" role="status" aria-live="polite"></div>
 
         <div class="askbar" id="askbar">
-          <span class="mag">›</span>
+          <span class="mag" aria-hidden="true">›</span>
+          <label class="sr-only" for="ask">Ask about Varun's work</label>
           <input id="ask" placeholder="ask me anything…" autocomplete="off" spellcheck="false" />
           <span class="kbd" id="askKbd">↵</span>
           <div class="sugg" id="sugg"></div>
