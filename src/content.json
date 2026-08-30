@@ -19,7 +19,7 @@
     }
   ],
   "about": {
-    "bio": "Hey i'm Varun Singh, a Backend and AI infrastructure engineer. I build retrieval systems, agent workflows, and the services underneath them with a bias toward deterministic behavior, measurable performance, and production reliability. At Oracle I architected Composer, an AI workflow platform that turns 5G requirements into structured test plans and automation-ready bundles, and re-engineered the telemetry path behind it from 8 hours to 1.5. Outside work I build in the open: hybrid retrieval, Go concurrency primitives, and infrastructure tooling. Currently going deeper on inference serving batching, routing, and GPU utilization.",
+    "bio": "Hey i'm Varun Singh, a Backend and Systems Engineer, I love building AI Infrastructure and retrieval systems, agent workflows, and the services underneath them with a bias toward scaling, measurable performance, and reliability. At Oracle I identified a gap and architected Composer, an AI workflow platform that turns 5G requirements into structured test plans and automation-ready bundles, and re-engineered the telemetry path behind it from 8 hours to 1.5. Outside work I build in the open: hybrid retrieval, Go concurrency primitives, and infrastructure tooling, I can never sit still and always try to learn something new. Currently going deeper on inference serving batching, routing, and GPU utilization as i strongly believe that the future of AI is on device. I love playing Valorant, roguelike games, fiction, and exploring new places",
     "facts": [
       "SDE-1 @ Oracle",
       "IIIT Jabalpur '25",
