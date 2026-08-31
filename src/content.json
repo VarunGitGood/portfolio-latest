@@ -2,8 +2,8 @@
   "name": "Varun Singh",
   "siteUrl": "https://vrun.in",
   "role": "",
-  "credentials": "Oracle SDE-1 · Go · Python · TypeScript",
-  "focus": "retrieval · agent orchestration · Go services",
+  "credentials": "Go / Python / TypeScript",
+  "focus": "retrieval / agent orchestration / Go services",
   "suggestedQuestions": [
     {
       "label": "show me his strongest work",
@@ -19,7 +19,7 @@
     }
   ],
   "about": {
-    "bio": "Hey i'm Varun Singh, a Backend and Systems Engineer, I love building AI Infrastructure and retrieval systems, agent workflows, and the services underneath them with a bias toward scaling, measurable performance, and reliability. At Oracle I identified a gap and architected Composer, an AI workflow platform that turns 5G requirements into structured test plans and automation-ready bundles, and re-engineered the telemetry path behind it from 8 hours to 1.5. Outside work I build in the open: hybrid retrieval, Go concurrency primitives, and infrastructure tooling, I can never sit still and always try to learn something new. Currently going deeper on inference serving batching, routing, and GPU utilization as i strongly believe that the future of AI is on device. I love playing Valorant, roguelike games, fiction, and exploring new places",
+    "bio": "Hey i'm Varun Singh, a Backend and Systems Engineer, I love building AI Infrastructure and retrieval systems, agent workflows, and the services underneath them with a bias toward scaling, measurable performance, and reliability. At Oracle I identified a gap and architected Composer, an AI workflow platform that turns 5G requirements into structured test plans and automation-ready bundles, and redesigned the Prometheus collection layer for 5G performance reporting, cutting a 96-logical-site, 24-hour benchmark from 3 hours 58 minutes to 45 minutes. Outside work I build in the open: hybrid retrieval, Go concurrency primitives, and infrastructure tooling, I can never sit still and always try to learn something new. Currently going deeper on inference serving batching, routing, and GPU utilization as i strongly believe that the future of AI is on device. I love playing Valorant, roguelike games, fiction, and exploring new places",
     "facts": [
       "SDE-1 @ Oracle",
       "IIIT Jabalpur '25",
@@ -27,42 +27,33 @@
       "Code for GovTech (C4GT)"
     ],
     "proof": [
-      "50% less manual authoring across 6+ network-function teams (Composer, Oracle)",
-      "telemetry retrieval 8h → 1.5h; 75.9% lower runtime over a 23.9k-request benchmark",
-      "LMS backend for 20k+ registered / 250+ peak concurrent users, built from scratch",
-      "video readiness 30 min → 5 min for 400+ videos across 5 HLS renditions"
+      "60% less manual authoring across 8+ network-function teams with Composer",
+      "Prometheus benchmark reduced from 3h 58m to 25m across 96 logical sites and 73K+ PromQL requests",
+      "Mitigated recurring SSH and file-descriptor leaks by centralizing Paramiko, JumpSSH, and SFTP lifecycle cleanup saving resources and improving system stability",
+      "Video readiness reduced from 30 minutes to 5 minutes for 400+ videos across 5 HLS rendition on the LMS backend for 20k+ registered users and 250+ peak concurrent users"
     ]
   },
   "projects": [
     {
       "id": "repi",
       "title": "repi",
-      "blurb": "local-first log RCA · hybrid retrieval · resumable agent",
+      "blurb": "local-first log RCA / hybrid retrieval / resumable agent",
       "details": "An autonomous log-investigation engine for distributed systems. It clusters repetitive logs by signature, retrieves evidence with BM25 + pgvector/HNSW fused through Reciprocal Rank Fusion, and investigates root cause through an explicit, resumable state machine. Every step is persisted for auditability, and confidence is constrained server-side by the evidence actually cited. It can run fully locally with Ollama; hosted-model adapters are optional.",
-      "stack": [
-        "Python",
-        "Postgres",
-        "pgvector",
-        "ParadeDB",
-        "FastEmbed"
-      ],
-      "region": [
-        0.72,
-        0.5
-      ],
-      "architecture": "Logs are parsed and grouped by normalized signatures before embedding, reducing repetitive noise without losing representative examples. Vector retrieval runs through pgvector/HNSW and lexical retrieval through ParadeDB BM25; RRF combines ranks without forcing incompatible score scales into one normalization scheme. Investigation is supervised by a hand-rolled finite-state machine (resolving → sweeping → gathering ⇄ reflecting → compiling). Thoughts, actions and observations persist to Postgres, so clarification can pause a run and resume from stored state. Search tools include filtered retrieval, cross-service time-window scans, timeline reconstruction, literal-ID lookup and service summaries. Deterministic server-side confidence rules downgrade unsupported conclusions.",
+      "stack": ["Python", "Postgres", "pgvector", "ParadeDB", "FastEmbed"],
+      "region": [0.72, 0.5],
+      "architecture": "Logs are parsed and grouped by normalized signatures before embedding, reducing repetitive noise without losing representative examples. Vector retrieval runs through pgvector/HNSW and lexical retrieval through ParadeDB BM25; RRF combines ranks without forcing incompatible score scales into one normalization scheme. Investigation is supervised by a hand-rolled finite-state machine (resolving to sweeping to gathering ⇄ reflecting to compiling). Thoughts, actions and observations persist to Postgres, so clarification can pause a run and resume from stored state. Search tools include filtered retrieval, cross-service time-window scans, timeline reconstruction, literal-ID lookup and service summaries. Deterministic server-side confidence rules downgrade unsupported conclusions.",
       "design_decisions": [
-        "A hand-rolled finite-state machine instead of LangGraph - the workflow has a small, explicit phase graph, so a dispatch table keeps transitions debuggable without framework coupling.",
-        "Signature clustering before embedding - recurring log templates become one evidence unit with representative examples instead of flooding retrieval with near-duplicates.",
-        "BM25 + vector retrieval fused with RRF - logs contain exact identifiers and error tokens that embeddings can blur, while rank fusion avoids score-normalization problems.",
-        "Progressive time-window expansion (10 → 60 → 360 → 1440 minutes) - start narrow for precision, then widen only when the evidence is insufficient.",
-        "Postgres as the shared store for logs, embeddings and investigation state - one persistence boundary keeps retrieval data and resumable agent state consistent."
+        "A hand-rolled finite-state machine instead of LangGraph: the workflow has a small, explicit phase graph, so a dispatch table keeps transitions debuggable without framework coupling.",
+        "Signature clustering before embedding: recurring log templates become one evidence unit with representative examples instead of flooding retrieval with near-duplicates.",
+        "BM25 + vector retrieval fused with RRF: logs contain exact identifiers and error tokens that embeddings can blur, while rank fusion avoids score-normalization problems.",
+        "Progressive time-window expansion (10 to 60 to 360 to 1440 minutes): start narrow for precision, then widen only when the evidence is insufficient.",
+        "Postgres as the shared store for logs, embeddings and investigation state: one persistence boundary keeps retrieval data and resumable agent state consistent."
       ],
       "tradeoffs": [
         "Single-machine architecture favors operational simplicity over horizontal ingest scale.",
         "A separate compilation call adds latency, but keeps evidence gathering separate from final synthesis.",
         "Hard iteration and provider-call budgets trade some autonomy for predictable cost and termination.",
-        "RRF discards the underlying scores and keeps only ranks - it is robust across incompatible scorers, but it cannot express how much better rank 1 was than rank 2."
+        "RRF discards the underlying scores and keeps only ranks: it is robust across incompatible scorers, but it cannot express how much better rank 1 was than rank 2."
       ],
       "challenges": [
         "Repetitive logs dominated retrieval until signature clustering collapsed recurring templates into bounded evidence clusters.",
@@ -106,12 +97,7 @@
       },
       "meta": {
         "difficulty": "Advanced",
-        "domains": [
-          "AI/LLM",
-          "RAG",
-          "Observability",
-          "Backend"
-        ],
+        "domains": ["AI/LLM", "RAG", "Observability", "Backend"],
         "highlights": [
           "BM25 + pgvector/HNSW fused with RRF",
           "resumable hand-rolled investigation state machine",
@@ -132,49 +118,59 @@
     },
     {
       "id": "collapser",
-      "title": "collapser-grpc",
-      "blurb": "gRPC request collapsing · 82 ns/op dedupe hot path",
-      "details": "An open-source Go sidecar for suppressing thundering-herd traffic. Equivalent unary requests share one backend call while followers wait for the same result. The proxy is schema-agnostic, uses detached backend execution so one cancelled caller cannot kill shared work, and exposes collapse, cache, inflight and backend-latency metrics through Prometheus.",
-      "stack": [
-        "Go",
-        "gRPC"
-      ],
-      "region": [
-        0.25,
-        0.3
-      ],
-      "architecture": "Each unary request is keyed by SHA256(method + payload), checked against a 100 ms TTL cache and then an in-flight map. The first caller becomes the leader; followers subscribe to its result. Backend work runs on a detached context, errors propagate to followers, errors are not cached by default, and panic paths are recovered and broadcast. A persistent gRPC ClientConn reuses HTTP/2 streams instead of redialing. Client-streaming and bidirectional RPCs bypass collapsing; server-streaming remains a documented limitation without proto descriptors.",
+      "title": "collapser",
+      "blurb": "gRPC request-collapsing sidecar / 2,000 concurrent identical requests reached the backend as 1 call",
+      "details": "An open-source Go sidecar that suppresses thundering-herd traffic. Equivalent unary requests share one backend call while followers wait on the same result. Envoy, which it runs alongside in a mesh, load-balances and retries those N requests but has no notion that they are the same request; this fills that gap. The proxy is schema-agnostic - a passthrough codec forwards raw gRPC frames, so no generated stubs are needed - runs backend work on a detached context so one cancelled caller cannot kill shared work, and exposes collapse, cache, in-flight and backend-latency metrics through Prometheus. It ships with Kubernetes and Istio manifests plus a kind-based cluster harness that counts backend calls at the backend rather than trusting the proxy's own accounting.",
+      "stack": ["Go", "gRPC", "Kubernetes", "Istio", "Prometheus"],
+      "region": [0.25, 0.3],
+      "architecture": "Each unary request is keyed by SHA256 over the method, the payload, and any headers named in COLLAPSER_KEY_HEADERS. That key is checked against a TTL result cache (100ms default, entry cap 10,000) and then an in-flight map. The first caller for a key becomes the leader and calls the backend; anyone arriving while that call is in flight becomes a follower and blocks on the single channel the leader closes when it has an answer - no polling, no per-waiter bookkeeping, and no allocation on the follower path. The backend call runs on a context derived from context.Background(), bounded by BACKEND_TIMEOUT, so a disconnecting client cannot cancel work others are waiting on. Panics are recovered and published as codes.Internal, so the leader always reaches the publish step and no follower is stranded. Errors are not cached by default. One persistent gRPC ClientConn is shared across backend calls, so HTTP/2 multiplexing replaces per-request handshakes. On SIGTERM the gRPC server drains in-flight calls before the collapser stops. Liveness never depends on the backend, so a backend outage cannot trigger restarts that remove the very collapsing protecting it; readiness does report the backend channel state. Client-streaming and bidirectional RPCs are detected and forwarded without collapsing; server-streaming is indistinguishable from unary without a proto descriptor.",
       "design_decisions": [
-        "A sidecar instead of a client library - collapsing works across callers regardless of implementation language.",
-        "Custom coordination instead of singleflight - adds TTL caching, per-call metrics and backend work that survives cancellation of the first caller.",
-        "SHA256(method + payload) as the collapse key - equivalent requests can be identified without understanding protobuf fields.",
-        "Errors are not cached by default - transient backend failures should not be amplified for the full cache window.",
-        "One persistent backend ClientConn - HTTP/2 multiplexing keeps TCP/TLS handshakes out of the request hot path."
+        "A sidecar instead of a client library: collapsing works across callers regardless of implementation language.",
+        "Custom coordination instead of singleflight: adds a TTL result cache past the in-flight window, per-call metrics, a collapse key that can include identity headers, and backend work that survives cancellation of the first caller.",
+        "A passthrough codec over raw gRPC frames: equivalent requests can be identified without generated stubs or protobuf descriptors.",
+        "Identity headers are opt-in via COLLAPSER_KEY_HEADERS rather than guessed at: the proxy cannot know which headers the backend varies its response by, so naming them is the operator's call and the docs lead with the consequence of not doing it.",
+        "Errors are not cached by default: one transient backend failure should not be replayed to every caller for the full TTL.",
+        "One persistent backend ClientConn: HTTP/2 multiplexing keeps TCP/TLS handshakes out of the request hot path.",
+        "Liveness and readiness are deliberately different: /health ignores the backend so an outage cannot restart the proxy away, /ready reports the backend channel so a rolling deploy does not route into a proxy that cannot reach anything."
       ],
       "tradeoffs": [
-        "Followers inherit the leader's failure - one backend error fails everyone attached. That's the correct read-through semantic, and retrying per-follower would recreate the exact herd the proxy exists to prevent.",
-        "A 100ms result TTL trades a small, bounded staleness window for the collapse ratio - long enough to absorb a burst, short enough that nobody is served genuinely old data.",
-        "Streaming RPCs are bypassed rather than half-supported - a stream has no single result to fan out, so client-streaming and bidirectional calls are detected and passed straight through.",
-        "Everything is configured by environment variable rather than a config file or control plane - a sidecar should be deployable without shipping a second artifact alongside it."
+        "Followers inherit the leader's failure: one backend error fails everyone attached. That's the correct read-through semantic, and retrying per-follower would recreate the exact herd the proxy exists to prevent.",
+        "A 100ms result TTL trades a small, bounded staleness window for the collapse ratio: long enough to absorb a burst, short enough that nobody is served genuinely old data.",
+        "Followers are served with the leader's metadata. A follower's own headers reach the backend only when they are named in the collapse key, which is the price of one shared call.",
+        "The detached context means a leader keeps running to BACKEND_TIMEOUT even after every caller has disconnected: wasted work in exchange for never killing a call that followers still need.",
+        "The cache is per-process, so N replicas can produce up to N backend calls for the same key. Sharing state across replicas would cost the latency the sidecar exists to save.",
+        "Streaming RPCs are bypassed rather than half-supported: a stream has no single result to fan out, so client-streaming and bidirectional calls are detected and passed straight through.",
+        "Everything is configured by environment variable rather than a config file or control plane: a sidecar should be deployable without shipping a second artifact alongside it."
       ],
       "challenges": [
-        "Client cancellation killing shared work - the naive implementation runs the backend call on the leader's context, so when that client disconnected every follower died with it. Detaching the context fixed it, and it's the core reason this exists rather than a singleflight wrapper.",
-        "Server-streaming RPCs are indistinguishable from unary ones without a proto descriptor - a known, documented limitation: server-streaming calls currently return only the first response frame.",
-        "TLS to the backend uses the system trust store - custom CA bundles and mutual TLS aren't supported yet, which rules out some zero-trust meshes today."
+        "Client cancellation killing shared work: the naive implementation runs the backend call on the leader's context, so when that client disconnected every follower died with it. Detaching the context fixed it, and it's the core reason this exists rather than a singleflight wrapper.",
+        "Collapsing is only safe between requests whose responses are interchangeable. With the default key (method plus payload) two callers sending identical payloads share one response even if they authenticated as different users - a cross-tenant leak. The fix is COLLAPSER_KEY_HEADERS, and the README leads with the hazard rather than burying it in a config table.",
+        "Measuring the collapse ratio without marking your own homework: the proxy's counters are the thing under test, so backend calls are counted at the backend and cross-checked against Envoy's istio_requests_total from the destination reporter.",
+        "Server-streaming RPCs are indistinguishable from unary ones without a proto descriptor - both look like one client message followed by a half-close - so only the first response frame is returned. A known, documented limitation.",
+        "The passthrough codec has to register globally under the name proto, replacing the default codec process-wide. That is what makes the proxy schema-agnostic, and it means internal/proxy must not be imported into a process that needs normal protobuf marshalling."
       ],
       "improvements": [
         "Optional proto descriptors so server-streaming RPCs can be detected and passed through correctly, closing the one real correctness gap.",
         "Mutual TLS and custom CA bundle support for backends that don't chain to the system trust store.",
-        "Per-method collapse policy - everything is global today, and non-idempotent methods deserve an explicit opt-out rather than relying on the TTL being short."
+        "Per-method collapse policy: everything is global today, and non-idempotent methods deserve an explicit opt-out rather than relying on the TTL being short.",
+        "Coverage on internal/proxy, which sits at 33.7% against 97.5% for the collapser engine."
       ],
       "claims": [
         {
-          "status": "benchmarked",
-          "text": "82 ns/op with zero allocations on the dedupe hot path. This is a Go microbenchmark of the in-process coordination path under synthetic high contention - it measures key hashing, cache lookup and in-flight map coordination only. It is NOT end-to-end RPC latency and contains no network, no serialization and no backend time."
+          "status": "measured",
+          "text": "On a local kind cluster running Istio 1.28.1 with sidecar injection and STRICT mTLS, identical concurrent requests through the deployed proxy reached the backend as a single call: 100 concurrent -> 1 call (99.0% fewer backend calls), 500 -> 1 (99.8%), 1,000 -> 1 (99.9%), 2,000 -> 1 (108ms wall against 50ms of backend work). Backend calls were counted at the backend and cross-checked against Envoy's istio_requests_total{reporter=\"destination\"}, not taken from the proxy's own metrics. This is a local single-node kind cluster under synthetic identical load, not production traffic."
         },
         {
           "status": "benchmarked",
-          "text": "Up to 1000:1 collapse ratio under synthetic 10k+ concurrent identical requests. Synthetic load, not a production traffic measurement."
+          "text": "Go microbenchmarks on an 11th Gen Intel Core i7-1165G7 (8 threads, Go 1.25.5), in-process only - no network, no serialization, no backend time. Cache-hit path 45.7 ns/op, 0 B/op, 0 allocs/op. Follower (collapse) path 54 B/op, 0 allocs/op; its ns/op is dominated by however long the backend takes, so the allocation count is the number that means anything. Leader path 1,594 ns/op, 552 B/op, 10 allocs/op."
+        },
+        {
+          "status": "benchmarked",
+          "text": "In-process stress with the race detector enabled: 10,000 concurrent requests on one key produced 2 backend calls (5,000:1) with 0 errors; a 60-second sustained run with 100 workers put through 391,400 requests as 392 backend calls (998.5:1) at 6,523 RPS with 0 errors. Zero goroutine leak and 0 MB heap growth across the run. Synthetic contention, not production traffic."
+        },
+        {
+          "status": "measured",
+          "text": "Test coverage: internal/collapser 97.5%, internal/config 95.8%, internal/proxy 33.7%. The proxy package is the thin one."
         },
         {
           "status": "implemented",
@@ -182,46 +178,61 @@
         },
         {
           "status": "implemented",
-          "text": "Schema-agnostic collapsing keyed by SHA256(method + payload) - no protobuf descriptors required."
+          "text": "Schema-agnostic collapsing through a passthrough codec over raw gRPC frames: no protobuf descriptors or generated stubs required."
         },
         {
           "status": "implemented",
-          "text": "Prometheus metrics for collapse ratio, cache hits, in-flight count and backend latency."
+          "text": "COLLAPSER_KEY_HEADERS folds named identity headers into the collapse key, so requests that differ only by tenant or authorization get separate backend calls."
+        },
+        {
+          "status": "implemented",
+          "text": "Prometheus metrics for requests, collapsed requests, backend calls, cache hits, cached entries, in-flight leaders and a backend-latency histogram; plus a liveness endpoint that ignores the backend and a readiness endpoint that reports the backend channel state."
+        },
+        {
+          "status": "implemented",
+          "text": "Graceful shutdown draining in-flight calls on SIGTERM, panic recovery published as codes.Internal, and a configurable cache entry cap (10,000 by default) so a key-diverse workload cannot grow the map without bound."
+        },
+        {
+          "status": "implemented",
+          "text": "Kubernetes and Istio manifests (Deployment, Service, VirtualService, DestinationRule, PeerAuthentication), a kind cluster harness, an in-mesh load generator, and a GitHub Pages project page."
         },
         {
           "status": "known limitation",
-          "text": "Server-streaming RPCs currently return only the first response frame; client-streaming and bidirectional calls bypass collapsing entirely. Backend TLS uses the system trust store only - no mTLS, no custom CA bundles."
+          "text": "Server-streaming RPCs are treated as unary and return only the first response frame, because without a proto descriptor they are indistinguishable from unary calls on the incoming connection; client-streaming and bidirectional calls are detected and forwarded correctly but bypass collapsing entirely. Backend TLS uses the system trust store only - no mTLS, no custom CA bundles - though inside a mesh Istio's sidecars handle that. The result cache is per-process, so N replicas can produce up to N backend calls for one key. The passthrough codec registers globally as \"proto\", so internal/proxy cannot be imported into a process needing normal protobuf marshalling."
+        },
+        {
+          "status": "known limitation",
+          "text": "With the default collapse key (method plus payload) two callers sending identical payloads share one response even if they authenticated as different users. Naming the identity headers in COLLAPSER_KEY_HEADERS is what makes that safe, and it is opt-in."
         },
         {
           "status": "planned",
-          "text": "Optional proto descriptors, mutual TLS, and per-method collapse policy. None of these are in the code today."
+          "text": "Optional proto descriptors, mutual TLS and custom CA bundles, and per-method collapse policy. None of these are in the code today."
         }
       ],
       "links": {
-        "github": "https://github.com/VarunGitGood/collapser-grpc"
+        "github": "https://github.com/VarunGitGood/collapser",
+        "demo": "https://varungitgood.github.io/collapser/"
       },
       "meta": {
         "difficulty": "Advanced",
-        "domains": [
-          "Distributed Systems",
-          "Go",
-          "gRPC",
-          "Performance"
-        ],
+        "domains": ["Distributed Systems", "Go", "gRPC", "Kubernetes", "Istio", "Performance"],
         "highlights": [
-          "82 ns/op, zero-allocation dedupe hot path in a synthetic high-contention Go benchmark",
-          "up to 1000:1 collapse ratio in synthetic contention tests",
-          "schema-agnostic passthrough",
+          "2,000 concurrent identical requests reached the backend as 1 call on a kind + Istio cluster, cross-checked against Envoy",
+          "0 allocs/op on the follower path; 45.7 ns/op cache hit",
+          "998:1 collapse ratio over a 60s, 391,400-request soak with 0 errors",
+          "schema-agnostic passthrough codec, no generated stubs",
           "detached-context semantics vs singleflight",
-          "Prometheus metrics built in"
+          "collapse key can include identity headers, so tenants don't share a response"
         ],
         "questions": [
-          "Is the 82 ns/op benchmark actually network latency?",
+          "Is the collapse ratio measured or self-reported?",
           "Why did he write his own coordination instead of using singleflight?",
           "What is request collapsing and when does it help?",
           "What can't it do?",
           "Why a sidecar instead of a client library?",
           "How does it work without knowing the protobuf schema?",
+          "Isn't collapsing requests from different users a data leak?",
+          "How was it tested on Kubernetes?",
           "Show me the detached-context code."
         ]
       }
@@ -229,32 +240,24 @@
     {
       "id": "fend",
       "title": "Fend",
-      "blurb": "fleet-wide Linux hardening · Ansible + Electron",
+      "blurb": "fleet-wide Linux hardening / Ansible + Electron",
       "details": "A desktop operator tool for applying repeatable Linux hardening across grouped Ubuntu hosts. Electron/React drives agentless Ansible playbooks over SSH, with key-based authentication and per-run audit logs. The project focuses on operationally legible, idempotent hardening rather than claiming full compliance with a security benchmark.",
-      "stack": [
-        "TypeScript",
-        "Electron",
-        "React",
-        "Ansible"
-      ],
-      "region": [
-        0.4,
-        0.75
-      ],
+      "stack": ["TypeScript", "Electron", "React", "Ansible"],
+      "region": [0.4, 0.75],
       "architecture": "An Electron application with a React and TypeScript renderer drives Ansible underneath. Hosts are organized into inventory groups so hardening can be applied per environment rather than per machine, and authentication to targets is key-based rather than interactive. Security modules ship as playbooks, custom scripts can be added alongside the built-in set, and every run is logged so an operator can see what was applied where.",
       "design_decisions": [
-        "Ansible as the execution layer - agentless and idempotent, so hardening can be safely re-applied.",
-        "Playbooks as the security-module boundary - operators can audit or extend hardening without changing application code.",
-        "A desktop operator model - SSH credentials stay on the operator machine instead of a privileged always-on service.",
-        "Grouped inventories - security changes apply to environments rather than one host at a time."
+        "Ansible as the execution layer: agentless and idempotent, so hardening can be safely re-applied.",
+        "Playbooks as the security-module boundary: operators can audit or extend hardening without changing application code.",
+        "A desktop operator model: SSH credentials stay on the operator machine instead of a privileged always-on service.",
+        "Grouped inventories: security changes apply to environments rather than one host at a time."
       ],
       "tradeoffs": [
-        "Ubuntu-focused rather than distro-agnostic - the playbooks encode Ubuntu-specific package and config paths, which keeps modules concrete at the cost of portability.",
-        "A desktop app means no central audit trail across operators - logs live per-run on the machine that ran them.",
+        "Ubuntu-focused rather than distro-agnostic: the playbooks encode Ubuntu-specific package and config paths, which keeps modules concrete at the cost of portability.",
+        "A desktop app means no central audit trail across operators: logs live per-run on the machine that ran them.",
         "Coverage is scoped to the implemented modules rather than a full CIS benchmark, so it reduces attack surface without claiming certification against a standard."
       ],
       "challenges": [
-        "Making remote execution legible in a GUI - an operator needs to know what a hardening run changed on which hosts, which drove per-run logging rather than fire-and-forget execution.",
+        "Making remote execution legible in a GUI: an operator needs to know what a hardening run changed on which hosts, which drove per-run logging rather than fire-and-forget execution.",
         "Bridging a desktop UI to an automation tool designed for the terminal, without hiding the playbooks that make the behavior auditable."
       ],
       "improvements": [
@@ -269,7 +272,7 @@
         },
         {
           "status": "known limitation",
-          "text": "Ubuntu-only playbook paths, no central cross-operator audit trail, and coverage scoped to the implemented modules - it is not certified against CIS or any other benchmark."
+          "text": "Ubuntu-only playbook paths, no central cross-operator audit trail, and coverage scoped to the implemented modules: it is not certified against CIS or any other benchmark."
         },
         {
           "status": "planned",
@@ -281,12 +284,7 @@
       },
       "meta": {
         "difficulty": "Intermediate",
-        "domains": [
-          "Security",
-          "Infrastructure",
-          "Automation",
-          "Desktop"
-        ],
+        "domains": ["Security", "Infrastructure", "Automation", "Desktop"],
         "highlights": [
           "agentless, idempotent hardening via Ansible",
           "grouped fleet management over SSH",
@@ -305,13 +303,7 @@
   "skills": [
     {
       "group": "Languages",
-      "items": [
-        "Go",
-        "Python",
-        "TypeScript",
-        "C++",
-        "SQL"
-      ]
+      "items": ["Go", "Python", "TypeScript", "C++", "SQL"]
     },
     {
       "group": "AI / LLM",
@@ -358,11 +350,11 @@
       "period": "Jul 2025-now",
       "location": "Hybrid",
       "confidential": true,
-      "summary": "Architected Composer, an AI workflow platform that turns 5G requirements into structured test plans and automation-ready bundles - reducing manual authoring effort by 50% across 6+ network-function teams. Re-engineered Prometheus telemetry collection, cutting end-to-end data retrieval from 8 hours to 1.5. Led a backward-compatible migration from an overloaded log server to Artifactory.",
+      "summary": "Architected Composer, an AI workflow platform that turns 5G requirements into structured test plans and automation-ready bundles, reducing manual authoring effort by 50% across 6+ network-function teams. Redesigned the Prometheus collection layer for 5G performance reporting using bounded concurrency, persistent sessions, and coordinated retry/backoff. Led a backward-compatible migration from an overloaded log server to Artifactory.",
       "points": [
-        "Composer: intent-driven selection over 65k+ domain-organized JSON examples, versioned generation skills, deterministic validation, resumable finite-state workflows, immutable artifacts and approval gates - 50% less manual authoring across 6+ network-function teams.",
-        "Prometheus telemetry: packed PromQL requests, reusable HTTP sessions, retry handling and bounded dual-worker concurrency cut end-to-end retrieval from 8 hours to 1.5; a 23.9k-request benchmark measured 75.9% lower runtime and 99.4% fewer connection establishments.",
-        "Artifactory migration: backward-compatible move off an overloaded log server, with reusable upload abstractions and direct bastion-to-Artifactory transfers for Robot, network-function and OSO artifacts while preserving downstream paths; centralized Paramiko, JumpSSH and SFTP lifecycle cleanup to eliminate recurring SSH and file-descriptor leaks."
+        "Composer: built intent-driven selection over 65k+ domain-organized JSON examples, versioned generation skills, deterministic validation, resumable finite-state workflows, immutable artifacts, and approval gates, reducing manual authoring effort by 50% across 6+ network-function teams.",
+        "Prometheus telemetry: redesigned collection using bounded concurrency, persistent HTTP sessions, query packing, and coordinated retry/backoff, cutting a 96-logical-site, 24-hour benchmark from 3h 58m to 45m, an 81% reduction and 5.3x speedup, while completing 73K+ PromQL requests with zero terminal failures.",
+        "Artifactory and reliability: led a backward-compatible migration from an overloaded log server using reusable upload abstractions and direct bastion-to-Artifactory transfers across Robot, network-function, and OSO artifacts while preserving downstream paths. Centralized Paramiko, JumpSSH, and SFTP lifecycle cleanup to eliminate recurring SSH and file-descriptor leaks."
       ]
     },
     {
@@ -374,7 +366,7 @@
       "summary": "Developed worker-utilization reporting for performance runs and refactored dashboard state management, cutting UI-related support tickets by 80% for 75+ engineers.",
       "points": [
         "Worker-utilization reporting for performance runs, surfacing resource bottlenecks.",
-        "Refactored test-scheduling dashboard state management - 80% fewer UI-related support tickets for 75+ engineers."
+        "Refactored test-scheduling dashboard state management: 80% fewer UI-related support tickets for 75+ engineers."
       ]
     },
     {
@@ -384,7 +376,7 @@
       "location": "Remote",
       "summary": "Owned end-to-end backend delivery for an LMS with 20k+ registered and 250+ peak concurrent users. Built the 7-module NestJS backend from scratch and engineered a Bull + FFmpeg pipeline that cut video readiness from 30 minutes to 5.",
       "points": [
-        "Built the 7-module NestJS backend from scratch with 3-role RBAC, Metabase reporting, async jobs and private DigitalOcean Spaces - 20k+ registered, 250+ peak concurrent users.",
+        "Built the 7-module NestJS backend from scratch with 3-role RBAC, Metabase reporting, async jobs and private DigitalOcean Spaces: 20k+ registered, 250+ peak concurrent users.",
         "Bull + FFmpeg processing for 400+ videos with multipart uploads and 5 HLS renditions, cutting readiness from 30 minutes to 5; a Cloudflare Worker enforced signed, expiring auth on every manifest and segment."
       ]
     }
